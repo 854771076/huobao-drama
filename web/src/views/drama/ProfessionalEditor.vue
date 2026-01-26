@@ -276,20 +276,24 @@
                       :placeholder="$t('editor.movementPlaceholder')"
                       @change="saveStoryboardField('movement')"
                     >
-                      <el-option label="固定镜头" value="固定镜头" />
-                      <el-option label="推镜" value="推镜" />
-                      <el-option label="拉镜" value="拉镜" />
-                      <el-option label="摇镜" value="摇镜" />
-                      <el-option label="移镜" value="移镜" />
-                      <el-option label="跟镜" value="跟镜" />
-                      <el-option label="升降镜头" value="升降镜头" />
-                      <el-option label="环绕" value="环绕" />
-                      <el-option label="甩镜" value="甩镜" />
-                      <el-option label="变焦" value="变焦" />
-                      <el-option label="手持晃动" value="手持晃动" />
-                      <el-option label="稳定器运动" value="稳定器运动" />
-                      <el-option label="轨道推拉" value="轨道推拉" />
-                      <el-option label="航拍" value="航拍" />
+                      <el-option label="固定" value="固定" />
+                      <el-option label="推镜(Zoom In)" value="推镜(Zoom In)" />
+                      <el-option label="拉镜(Zoom Out)" value="拉镜(Zoom Out)" />
+                      <el-option label="水平摇镜(Pan)" value="水平摇镜(Pan)" />
+                      <el-option label="垂直摇镜(Tilt)" value="垂直摇镜(Tilt)" />
+                      <el-option label="跟镜(Tracking)" value="跟镜(Tracking)" />
+                      <el-option label="横移(Truck)" value="横移(Truck)" />
+                      <el-option label="升降(Pedestal)" value="升降(Pedestal)" />
+                      <el-option label="环绕(Arc/Orbit)" value="环绕(Arc/Orbit)" />
+                      <el-option label="急摇(Whip Pan)" value="急摇(Whip Pan)" />
+                      <el-option label="希区柯克变焦(Dolly Zoom)" value="希区柯克变焦(Dolly Zoom)" />
+                      <el-option label="极速俯冲(Nosedive)" value="极速俯冲(Nosedive)" />
+                      <el-option label="子弹时间(Bullet Time)" value="子弹时间(Bullet Time)" />
+                      <el-option label="穿梭运镜(Fly Through)" value="穿梭运镜(Fly Through)" />
+                      <el-option label="摇臂镜头(Crane Shot)" value="摇臂镜头(Crane Shot)" />
+                      <el-option label="手持晃动(Handheld)" value="手持晃动(Handheld)" />
+                      <el-option label="旋转晕眩(Spinning)" value="旋转晕眩(Spinning)" />
+                      <el-option label="变焦(Zoom)" value="变焦(Zoom)" />
                     </el-select>
                   </div>
 
@@ -302,22 +306,20 @@
                       @change="saveStoryboardField('angle')"
                     >
                       <el-option label="平视" value="平视" />
-                      <el-option label="俯视" value="俯视" />
                       <el-option label="仰视" value="仰视" />
-                      <el-option
-                        label="大俯视（鸟瞰）"
-                        value="大俯视（鸟瞰）"
-                      />
+                      <el-option label="俯视" value="俯视" />
+                      <el-option label="低角度" value="低角度" />
+                      <el-option label="高角度" value="高角度" />
+                      <el-option label="荷兰角(倾斜构图)" value="荷兰角(倾斜构图)" />
+                      <el-option label="鸟瞰" value="鸟瞰" />
+                      <el-option label="虫瞻" value="虫瞻" />
+                      <el-option label="侧面" value="侧面" />
+                      <el-option label="背面" value="背面" />
+                      <el-option label="主观视角" value="主观视角" />
+                      <el-option label="过肩" value="过肩" />
                       <el-option label="大仰视" value="大仰视" />
                       <el-option label="正侧面" value="正侧面" />
                       <el-option label="斜侧面" value="斜侧面" />
-                      <el-option label="背面" value="背面" />
-                      <el-option
-                        label="倾斜（荷兰角）"
-                        value="倾斜（荷兰角）"
-                      />
-                      <el-option label="主观视角" value="主观视角" />
-                      <el-option label="过肩" value="过肩" />
                     </el-select>
                   </div>
                 </div>
@@ -374,6 +376,41 @@
                   :placeholder="$t('editor.descriptionPlaceholder')"
                   @blur="saveStoryboardField('description')"
                 />
+              </div>
+
+              <!-- 视效设置 -->
+              <div class="settings-section">
+                <div class="section-label">{{ $t('editor.visualEffect') }}</div>
+                <div class="audio-controls">
+                  <el-select
+                    v-model="currentStoryboard.visual_effect"
+                    filterable
+                    allow-create
+                    clearable
+                    :placeholder="$t('editor.visualEffectPlaceholder')"
+                    @change="saveStoryboardField('visual_effect')"
+                  >
+                    <el-option label="无" value="无" />
+                    <el-option label="慢动作" value="慢动作" />
+                    <el-option label="动态模糊" value="动态模糊" />
+                    <el-option label="镜头光晕" value="镜头光晕" />
+                    <el-option label="体积光(丁达尔效应)" value="体积光(丁达尔效应)" />
+                    <el-option label="故障效果(Glitch)" value="故障效果(Glitch)" />
+                    <el-option label="色差模糊" value="色差模糊" />
+                    <el-option label="剪影" value="剪影" />
+                    <el-option label="双重曝光" value="双重曝光" />
+                    <el-option label="时间倒流" value="时间倒流" />
+                    <el-option label="虚实变换(Rack Focus)" value="虚实变换(Rack Focus)" />
+                    <el-option label="分身残影" value="分身残影" />
+                    <el-option label="粒子消散" value="粒子消散" />
+                    <el-option label="冲击波" value="冲击波" />
+                    <el-option label="速度线" value="速度线" />
+                    <el-option label="黑色电影滤镜" value="黑色电影滤镜" />
+                    <el-option label="霓虹氛围" value="霓虹氛围" />
+                    <el-option label="鱼眼扭曲" value="鱼眼扭曲" />
+                    <el-option label="微缩景观(移轴)" value="微缩景观(移轴)" />
+                  </el-select>
+                </div>
               </div>
 
               <!-- 音效设置 -->
@@ -557,10 +594,11 @@
                         </el-icon>
                         <p>生成中...</p>
                       </div>
-                      <div class="image-info">
+                      <div class="image-info" @click="handleImageStatusClick(img)">
                         <el-tag
                           :type="getStatusType(img.status)"
                           size="small"
+                          style="cursor: pointer"
                           >{{ getStatusText(img.status) }}</el-tag
                         >
                         <span v-if="img.frame_type" class="frame-type-tag">{{
@@ -2033,6 +2071,24 @@
         </div>
       </div>
     </el-dialog>
+    <!-- 错误信息详情弹窗 -->
+    <el-dialog
+      v-model="showErrorDialog"
+      :title="$t('editor.errorDetail')"
+      width="500px"
+    >
+      <div class="error-content">
+        <el-alert
+          :title="currentErrorMsg || $t('editor.unknownError')"
+          type="error"
+          :closable="false"
+          show-icon
+        />
+        <div class="error-actions" style="margin-top: 20px; text-align: right">
+          <el-button @click="showErrorDialog = false">{{ $t('common.close') }}</el-button>
+        </div>
+      </div>
+    </el-dialog>
   </div>
 </template>
 
@@ -2152,6 +2208,17 @@ const isSwitchingFrameType = ref(false); // 标志位：是否正在切换帧类
 const loadingImages = ref(false);
 let pollingTimer: any = null;
 let pollingFrameType: FrameType | null = null; // 记录正在轮询的帧类型
+
+// 错误弹窗状态
+const showErrorDialog = ref(false)
+const currentErrorMsg = ref('')
+
+const handleImageStatusClick = (img: ImageGeneration) => {
+  if (img.status === 'failed') {
+    currentErrorMsg.value = img.error_msg || '未知错误'
+    showErrorDialog.value = true
+  }
+}
 
 // 视频生成相关状态
 const videoDuration = ref(5); // 默认5秒，会根据镜头duration自动更新

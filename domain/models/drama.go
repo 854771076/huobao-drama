@@ -23,10 +23,11 @@ type Drama struct {
 	UpdatedAt     time.Time      `gorm:"not null;autoUpdateTime" json:"updated_at"`
 	DeletedAt     gorm.DeletedAt `gorm:"index" json:"-"`
 
-	Episodes   []Episode   `gorm:"foreignKey:DramaID" json:"episodes,omitempty"`
-	Characters []Character `gorm:"foreignKey:DramaID" json:"characters,omitempty"`
-	Scenes     []Scene     `gorm:"foreignKey:DramaID" json:"scenes,omitempty"`
-	Props      []Prop      `gorm:"foreignKey:DramaID" json:"props,omitempty"`
+	Episodes      []Episode   `gorm:"foreignKey:DramaID" json:"episodes,omitempty"`
+	Characters    []Character `gorm:"foreignKey:DramaID" json:"characters,omitempty"`
+	Scenes        []Scene     `gorm:"foreignKey:DramaID" json:"scenes,omitempty"`
+	Props         []Prop      `gorm:"foreignKey:DramaID" json:"props,omitempty"`
+	VisualEffects *string     `gorm:"type:text" json:"visual_effects"`
 }
 
 func (d *Drama) TableName() string {
@@ -105,6 +106,7 @@ type Storyboard struct {
 	ImagePrompt      *string        `gorm:"type:text" json:"image_prompt"`
 	VideoPrompt      *string        `gorm:"type:text" json:"video_prompt"`
 	BgmPrompt        *string        `gorm:"type:text" json:"bgm_prompt"`
+	VisualEffect     *string        `gorm:"type:text" json:"visual_effect"` // 视觉特效
 	SoundEffect      *string        `gorm:"size:255" json:"sound_effect"`
 	Dialogue         *string        `gorm:"type:text" json:"dialogue"`
 	Description      *string        `gorm:"type:text" json:"description"`
