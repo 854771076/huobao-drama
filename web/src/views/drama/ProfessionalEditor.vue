@@ -33,9 +33,9 @@
           <div
             v-for="(shot, index) in storyboards"
             :key="shot.id"
-            class="storyboard-item"
-            :class="{ active: currentStoryboardId === shot.id }"
-            @click="selectStoryboard(shot.id)"
+            class="shot-item"
+            :class="{ active: currentStoryboardId === Number(shot.id) }"
+            @click="selectStoryboard(Number(shot.id))"
           >
             <div class="shot-content">
               <div class="shot-header">
@@ -71,11 +71,11 @@
       <!-- 中间时间线编辑区域 -->
       <div class="timeline-area">
         <VideoTimelineEditor
-          ref="timelineEditorRef"
           v-if="storyboards.length > 0"
-          :scenes="storyboards"
-          :episode-id="episodeId.toString()"
+          ref="timelineEditorRef"
+          :scenes="storyboards as any"
           :drama-id="dramaId.toString()"
+          :episode-id="episodeId.toString()"
           :assets="videoAssets"
           @select-scene="handleTimelineSelect"
           @asset-deleted="loadVideoAssets"
@@ -475,13 +475,13 @@
                       type="primary"
                       :disabled="
                         isGeneratingPrompt(
-                          currentStoryboard?.id,
+                          currentStoryboard ? Number(currentStoryboard.id) : undefined,
                           selectedFrameType,
                         )
                       "
                       :loading="
                         isGeneratingPrompt(
-                          currentStoryboard?.id,
+                          currentStoryboard ? Number(currentStoryboard.id) : undefined,
                           selectedFrameType,
                         )
                       "
@@ -1472,8 +1472,8 @@
                     "
                   >
                     <div
-                      v-for="video in generatedVideos"
-                      :key="video.id"
+                      v-for="genVideo in generatedVideos"
+                      :key="genVideo.id"
                       class="image-item video-item"
                       style="
                         position: relative;
@@ -1488,7 +1488,7 @@
                     >
                       <div
                         class="video-thumbnail"
-                        v-if="video.video_url"
+                        v-if="genVideo.video_url"
                         style="
                           position: relative;
                           width: 100%;
@@ -1498,20 +1498,20 @@
                         "
                         @mouseenter="
                           (e) =>
-                            (e.currentTarget.querySelector(
+                            ((e.currentTarget as HTMLElement).querySelector(
                               '.play-overlay',
-                            ).style.opacity = '1')
+                            ) as HTMLElement).style.opacity = '1'
                         "
                         @mouseleave="
                           (e) =>
-                            (e.currentTarget.querySelector(
+                            ((e.currentTarget as HTMLElement).querySelector(
                               '.play-overlay',
-                            ).style.opacity = '0')
+                            ) as HTMLElement).style.opacity = '0'
                         "
-                        @click="playVideo(video)"
+                        @click="playVideo(genVideo)"
                       >
                         <video
-                          :src="video.video_url"
+                          :src="genVideo.video_url"
                           preload="metadata"
                           style="
                             width: 100%;
@@ -1596,28 +1596,28 @@
                           style="display: flex; align-items: center; gap: 4px"
                         >
                           <el-tag
-                            :type="getStatusType(video.status)"
+                            :type="getStatusType(genVideo.status)"
                             size="small"
                             style="
                               font-size: 10px;
                               height: 20px;
                               padding: 0 6px;
                             "
-                            >{{ getStatusText(video.status) }}</el-tag
+                            >{{ getStatusText(genVideo.status) }}</el-tag
                           >
                         </div>
                         <div style="display: flex; gap: 4px">
                           <el-button
                             v-if="
-                              video.status === 'completed' && video.video_url
+                              genVideo.status === 'completed' && genVideo.video_url
                             "
                             type="success"
                             size="small"
-                            :loading="addingToAssets.has(video.id)"
-                            @click.stop="addVideoToAssets(video)"
+                            :loading="addingToAssets.has(genVideo.id)"
+                            @click.stop="addVideoToAssets(genVideo)"
                           >
                             {{
-                              addingToAssets.has(video.id)
+                              addingToAssets.has(genVideo.id)
                                 ? "添加中..."
                                 : "添加到素材库"
                             }}
@@ -2014,7 +2014,7 @@
             <el-button
               v-if="previewVideo.video_url"
               size="small"
-              @click="window.open(previewVideo.video_url, '_blank')"
+              @click="openWindow(previewVideo.video_url)"
             >
               {{ $t("professionalEditor.downloadVideo") }}
             </el-button>
@@ -2096,6 +2096,10 @@ import { AppHeader } from "@/components/common";
 const route = useRoute();
 const router = useRouter();
 const { t: $t } = useI18n();
+
+const openWindow = (url: string) => {
+    window.open(url, '_blank');
+}
 
 const dramaId = Number(route.params.dramaId);
 const episodeNumber = Number(route.params.episodeNumber);
@@ -2483,7 +2487,7 @@ const loadPreviousStoryboardLastFrame = async () => {
   }
   try {
     const result = await imageAPI.listImages({
-      storyboard_id: previousStoryboard.value.id,
+      storyboard_id: Number(previousStoryboard.value.id),
       frame_type: "last",
       page: 1,
       page_size: 10,
@@ -2533,9 +2537,8 @@ const selectPreviousLastFrame = (img: any) => {
   ElMessage.success("已添加为首帧参考");
 };
 
-// 监听帧类型切换，从存储中加载或清空
-watch(selectedFrameType, (newType) => {
-  // 切换帧类型时，停止之前的轮询，避免旧结果覆盖新帧类型
+// 监听帧类型切换，从接口加载
+watch(selectedFrameType, async (newType) => {
   stopPolling();
 
   if (!currentStoryboard.value) {
@@ -2544,32 +2547,21 @@ watch(selectedFrameType, (newType) => {
     return;
   }
 
-  // 设置切换标志，防止watch(currentFramePrompt)错误保存
   isSwitchingFrameType.value = true;
 
-  // 从 framePrompts 对象中加载该帧类型的提示词
-  currentFramePrompt.value = framePrompts.value[newType] || "";
-
-  // 从 sessionStorage 中加载该帧类型之前的提示词（如果framePrompts中没有）
-  if (!currentFramePrompt.value) {
-    const storageKey = `frame_prompt_${currentStoryboard.value.id}_${newType}`;
-    const stored = sessionStorage.getItem(storageKey);
-    if (stored) {
-      currentFramePrompt.value = stored;
-      framePrompts.value[newType] = stored;
-    }
-  }
+  // 无论是切换类型还是切换镜头，都优先从后端获取最新的提示词
+  // 只有当后端没有时，才尝试本地缓存（可选）
+  await loadFramePromptFromBackend(Number(currentStoryboard.value.id), newType);
 
   // 重新加载该帧类型的图片
-  loadStoryboardImages(currentStoryboard.value.id, newType);
+  loadStoryboardImages(Number(currentStoryboard.value.id), newType);
 
-  // 重置切换标志
   setTimeout(() => {
     isSwitchingFrameType.value = false;
   }, 0);
 });
 
-// 监听当前分镜切换，重置提示词
+// 监听当前分镜切换，重置提示词并从接口加载
 watch(currentStoryboard, async (newStoryboard) => {
   if (!newStoryboard) {
     currentFramePrompt.value = "";
@@ -2580,38 +2572,62 @@ watch(currentStoryboard, async (newStoryboard) => {
     return;
   }
 
-  // 设置切换标志
   isSwitchingFrameType.value = true;
 
   // 加载当前帧类型的提示词
-  const storageKey = getPromptStorageKey(
-    newStoryboard.id,
-    selectedFrameType.value,
-  );
-  if (storageKey) {
-    const stored = sessionStorage.getItem(storageKey);
-    currentFramePrompt.value = stored || "";
-  } else {
-    currentFramePrompt.value = "";
-  }
+  await loadFramePromptFromBackend(Number(newStoryboard.id), selectedFrameType.value);
 
-  // 重置切换标志
   setTimeout(() => {
     isSwitchingFrameType.value = false;
   }, 0);
 
   // 加载该分镜的图片列表（根据当前选择的帧类型）
-  await loadStoryboardImages(newStoryboard.id, selectedFrameType.value);
+  await loadStoryboardImages(Number(newStoryboard.id), selectedFrameType.value);
 
   // 加载视频参考图片（所有帧类型）
-  await loadVideoReferenceImages(newStoryboard.id);
+  await loadVideoReferenceImages(Number(newStoryboard.id));
 
   // 加载该分镜的视频列表
-  await loadStoryboardVideos(newStoryboard.id);
+  await loadStoryboardVideos(Number(newStoryboard.id));
 
   // 加载上一镜头的尾帧
   await loadPreviousStoryboardLastFrame();
 });
+
+// 从后端加载帧提示词
+const loadFramePromptFromBackend = async (
+  storyboardId: number,
+  frameType: string,
+) => {
+  try {
+    const res = await dramaAPI.getFramePrompts(storyboardId);
+    // res is { frame_prompts: [] }
+    // find request type
+    const prompts = res.frame_prompts || [];
+    const match = prompts.find((p: any) => p.frame_type === frameType);
+
+    if (match) {
+      currentFramePrompt.value = match.prompt || "";
+    } else {
+      // Fallback to session storage if not found in backend (optional, but maybe safer)
+      const storageKey = getPromptStorageKey(
+        storyboardId,
+        frameType as FrameType,
+      );
+      if (storageKey) {
+        const stored = sessionStorage.getItem(storageKey);
+        currentFramePrompt.value = stored || "";
+      } else {
+        currentFramePrompt.value = "";
+      }
+    }
+    // Update local map
+    framePrompts.value[frameType] = currentFramePrompt.value;
+  } catch (e) {
+    console.error("Failed to load frame prompts", e);
+    currentFramePrompt.value = "";
+  }
+};
 
 // 监听提示词变化，自动保存到sessionStorage
 watch(currentFramePrompt, (newPrompt) => {
@@ -2620,7 +2636,7 @@ watch(currentFramePrompt, (newPrompt) => {
   if (!currentStoryboard.value) return;
 
   const storageKey = getPromptStorageKey(
-    currentStoryboard.value.id,
+    Number(currentStoryboard.value.id),
     selectedFrameType.value,
   );
   if (storageKey) {
@@ -2785,7 +2801,7 @@ const saveStoryboardField = async (fieldName: string) => {
 const extractFramePrompt = async () => {
   if (!currentStoryboard.value) return;
 
-  const storyboardId = currentStoryboard.value.id;
+  const storyboardId = Number(currentStoryboard.value.id);
   // 记录点击时的帧类型，后续任务完成时用于判断是否需要更新当前显示
   const targetFrameType = selectedFrameType.value;
 
@@ -2855,7 +2871,7 @@ const extractFramePrompt = async () => {
     // 如果任务完成时，用户当前的选中状态正好是该镜头+该类型，则立即更新显示
     if (
       currentStoryboard.value &&
-      currentStoryboard.value.id === storyboardId &&
+      Number(currentStoryboard.value.id) === storyboardId &&
       selectedFrameType.value === targetFrameType
     ) {
       currentFramePrompt.value = extractedPrompt;
@@ -2975,7 +2991,7 @@ const startPolling = () => {
         stopPolling();
         // 刷新视频参考图片列表
         if (currentStoryboard.value) {
-          loadVideoReferenceImages(currentStoryboard.value.id);
+          loadVideoReferenceImages(Number(currentStoryboard.value.id));
         }
       }
     } catch (error) {
@@ -3020,7 +3036,7 @@ const generateFrameImage = async () => {
     const result = await imageAPI.generateImage({
       drama_id: dramaId.toString(),
       prompt: currentFramePrompt.value,
-      storyboard_id: currentStoryboard.value.id,
+      storyboard_id: Number(currentStoryboard.value.id),
       image_type: "storyboard",
       frame_type: selectedFrameType.value,
       reference_images:
@@ -3594,7 +3610,7 @@ const loadData = async () => {
     }
 
     episode.value = ep;
-    episodeId.value = ep.id;
+    episodeId.value = Number(ep.id);
 
     // 加载分镜列表
     const storyboardsRes = await dramaAPI.getStoryboards(ep.id.toString());
@@ -3604,7 +3620,7 @@ const loadData = async () => {
 
     // 默认选中第一个分镜
     if (storyboards.value.length > 0 && !currentStoryboardId.value) {
-      currentStoryboardId.value = storyboards.value[0].id;
+      currentStoryboardId.value = Number(storyboards.value[0].id);
     }
 
     // 加载角色列表
@@ -3627,8 +3643,8 @@ const selectScene = async (sceneId: number) => {
   if (!currentStoryboard.value) return;
 
   try {
-    // TODO: 调用API更新分镜的scene_id
-    await dramaAPI.updateScene(currentStoryboard.value.id.toString(), {
+    // 调用API更新分镜的scene_id
+    await dramaAPI.updateStoryboard(currentStoryboard.value.id.toString(), {
       scene_id: sceneId,
     });
 
@@ -3723,8 +3739,8 @@ const uploadImage = () => {
       if (imageUrl && currentStoryboard.value) {
         // 创建图片生成记录（关联到当前镜头和帧类型）
         await imageAPI.uploadImage({
-          storyboard_id: currentStoryboard.value.id,
-          drama_id: parseInt(dramaId),
+          storyboard_id: Number(currentStoryboard.value.id),
+          drama_id: dramaId,
           frame_type: selectedFrameType.value || "first",
           image_url: imageUrl,
           prompt: currentFramePrompt.value || "用户上传图片",
@@ -3732,7 +3748,7 @@ const uploadImage = () => {
 
         // 刷新图片列表
         await loadStoryboardImages(
-          currentStoryboard.value.id,
+          Number(currentStoryboard.value.id),
           selectedFrameType.value,
         );
 
@@ -3763,7 +3779,7 @@ const handleAddStoryboard = async () => {
         : 1;
 
     await dramaAPI.createStoryboard({
-      episode_id: parseInt(episodeId.value),
+      episode_id: episodeId.value,
       storyboard_number: nextShotNumber,
       title: `镜头 ${nextShotNumber}`,
       description: "新镜头描述",
@@ -3771,8 +3787,8 @@ const handleAddStoryboard = async () => {
       dialogue: "",
       duration: 5,
       scene_id:
-        storyboards.value.length > 0
-          ? storyboards.value[storyboards.value.length - 1].scene_id
+        storyboards.value.length > 0 && storyboards.value[storyboards.value.length - 1].scene_id
+          ? Number(storyboards.value[storyboards.value.length - 1].scene_id)
           : undefined,
     });
 
@@ -3781,7 +3797,7 @@ const handleAddStoryboard = async () => {
 
     // Select the new storyboard (the last one)
     if (storyboards.value.length > 0) {
-      selectStoryboard(storyboards.value[storyboards.value.length - 1].id);
+      selectStoryboard(Number(storyboards.value[storyboards.value.length - 1].id));
     }
   } catch (error: any) {
     console.error("添加分镜失败:", error);
@@ -3807,7 +3823,7 @@ const handleDeleteStoryboard = async (storyboard: any) => {
     // If deleted current storyboard, clear selection or select another
     if (currentStoryboardId.value === storyboard.id) {
       currentStoryboardId.value = undefined;
-      currentStoryboard.value = undefined;
+      currentStoryboardId.value = null;
     }
 
     await loadData();
