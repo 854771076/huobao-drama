@@ -2042,8 +2042,8 @@
         >
           <div class="scene-image">
             <img
-              v-if="scene.image_url"
-              :src="scene.image_url"
+              v-if="hasImage(scene)"
+              :src="getImageUrl(scene)"
               :alt="scene.location"
             />
             <el-icon v-else :size="48" color="#ccc">
@@ -2072,7 +2072,7 @@
       <div class="video-preview-container" v-if="previewVideo">
         <video
           v-if="previewVideo.video_url"
-          :src="previewVideo.video_url"
+          :src="getVideoUrl(previewVideo)"
           controls
           autoplay
           style="
@@ -2211,7 +2211,7 @@ import type { VideoMerge } from "@/api/videoMerge";
 import VideoTimelineEditor from "@/components/editor/VideoTimelineEditor.vue";
 import type { Drama, Episode, Storyboard } from "@/types/drama";
 import { AppHeader } from "@/components/common";
-import { getImageUrl, hasImage } from "@/utils/image";
+import { getImageUrl, hasImage, getVideoUrl } from "@/utils/image";
 
 const route = useRoute();
 const router = useRouter();
@@ -2728,6 +2728,14 @@ watch(currentStoryboard, async (newStoryboard) => {
   }
 
   isSwitchingFrameType.value = true;
+
+  // 清空 framePrompts 对象，避免显示上一个镜头的提示词
+  framePrompts.value = {
+    key: "",
+    first: "",
+    last: "",
+    panel: "",
+  };
 
   // 加载当前帧类型的提示词
   await loadFramePromptFromBackend(Number(newStoryboard.id), selectedFrameType.value);
