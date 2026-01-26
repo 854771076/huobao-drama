@@ -1631,7 +1631,8 @@
                         "
                       >
                         <div
-                          style="display: flex; align-items: center; gap: 4px"
+                          style="display: flex; align-items: center; gap: 4px; cursor: pointer"
+                          @click.stop="handleVideoStatusClick(genVideo)"
                         >
                           <el-tag
                             :type="getStatusType(genVideo.status)"
@@ -2216,6 +2217,13 @@ const currentErrorMsg = ref('')
 const handleImageStatusClick = (img: ImageGeneration) => {
   if (img.status === 'failed') {
     currentErrorMsg.value = img.error_msg || '未知错误'
+    showErrorDialog.value = true
+  }
+}
+
+const handleVideoStatusClick = (video: VideoGeneration) => {
+  if (video.status === 'failed') {
+    currentErrorMsg.value = video.error_msg || '未知错误'
     showErrorDialog.value = true
   }
 }
