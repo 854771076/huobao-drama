@@ -141,5 +141,28 @@ func (s *StoryboardService) UpdateStoryboard(storyboardID string, updates map[st
 		"storyboard_id", storyboardID,
 		"fields_updated", len(updateData))
 
+	// Handle character_ids update
+	if val, ok := updates["character_ids"]; ok {
+		var charIDs []uint
+		if idSlice, ok := val.([]interface{}); ok {
+			for _, id := range idSlice {
+				if idFloat, ok := id.(float64); ok {
+					charIDs = append(charIDs, uint(idFloat))
+				}
+			}
+		}
+
+		if len(charIDs) >= 0 { // Allow empty list to clear characters
+			var newCharacters []models.Character
+			for _, id := range charIDs {
+				newCharacters = append(newCharacters, models.Character{ID: id})
+			}
+			if err := s.db.Model(&storyboard).Association("Characters").Replace(&newCharacters); err != nil {
+				return fmt.Errorf("failed to update storyboard characters: %w", err)
+			}
+			s.log.Infow("Storyboard characters updated", "storyboard_id", storyboardID, "count", len(newCharacters))
+		}
+	}
+
 	return nil
 }
