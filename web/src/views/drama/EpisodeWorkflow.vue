@@ -647,17 +647,98 @@
         </el-form-item>
 
         <el-row :gutter="16">
-          <el-col :span="12">
+          <el-col :span="8">
             <el-form-item :label="$t('workflow.bgmHint')">
               <el-input v-model="editingShot.bgm_prompt" :placeholder="$t('workflow.bgmAtmosphere')" />
             </el-form-item>
           </el-col>
-          <el-col :span="12">
+          <el-col :span="8">
             <el-form-item :label="$t('workflow.soundEffect')">
               <el-input v-model="editingShot.sound_effect" :placeholder="$t('workflow.soundEffectDescription')" />
             </el-form-item>
           </el-col>
+          <el-col :span="8">
+            <el-form-item :label="$t('editor.visualEffect')">
+              <el-select
+                v-model="editingShot.visual_effect"
+                filterable
+                allow-create
+                clearable
+                :placeholder="$t('editor.visualEffectPlaceholder')"
+              >
+                <el-option label="无" value="无" />
+                <el-option label="慢动作" value="慢动作" />
+                <el-option label="动态模糊" value="动态模糊" />
+                <el-option label="镜头光晕" value="镜头光晕" />
+                <el-option label="体积光(丁达尔效应)" value="体积光(丁达尔效应)" />
+                <el-option label="故障效果(Glitch)" value="故障效果(Glitch)" />
+                <el-option label="色差模糊" value="色差模糊" />
+                <el-option label="剪影" value="剪影" />
+                <el-option label="双重曝光" value="双重曝光" />
+                <el-option label="时间倒流" value="时间倒流" />
+                <el-option label="移轴摄影" value="移轴摄影" />
+              </el-select>
+            </el-form-item>
+          </el-col>
         </el-row>
+
+        <el-divider content-position="left">{{ $t('editor.associations') }}</el-divider>
+
+        <el-form-item :label="$t('storyboard.scene')">
+          <el-select 
+            v-model="editingShot.scene_id" 
+            filterable 
+            clearable 
+            :placeholder="$t('storyboard.selectScene')"
+            style="width: 100%"
+          >
+            <el-option
+              v-for="scene in currentEpisode?.scenes || []"
+              :key="scene.id"
+              :label="scene.location + (scene.time ? ' · ' + scene.time : '')"
+              :value="scene.id"
+            />
+          </el-select>
+        </el-form-item>
+
+        <el-form-item :label="$t('editor.cast')">
+          <el-select 
+            v-model="editingShot.character_ids" 
+            multiple 
+            filterable 
+            clearable 
+            :placeholder="$t('editor.addCharacter')"
+            style="width: 100%"
+          >
+            <el-option
+              v-for="char in currentEpisode?.characters || []"
+              :key="char.id"
+              :label="char.name"
+              :value="char.id"
+            />
+          </el-select>
+        </el-form-item>
+
+        <el-form-item :label="$t('editor.props')">
+          <el-select 
+            v-model="editingShot.prop_ids" 
+            multiple 
+            filterable 
+            clearable 
+            :placeholder="$t('editor.addProp')"
+            style="width: 100%"
+          >
+             <!-- Need to fetch props, currently assuming currentEpisode.props or drama.props exists. 
+                  Actually props are usually on drama level. 
+                  I will use availableProps computed property later. -->
+            <el-option
+              v-for="prop in drama?.props || []"
+              :key="prop.id"
+              :label="prop.name"
+              :value="prop.id"
+            />
+          </el-select>
+        </el-form-item>
 
         <el-form-item :label="$t('workflow.durationSeconds')">
           <el-input-number v-model="editingShot.duration" :min="1" :max="60" />
@@ -1574,7 +1655,12 @@ const editingShotIndex = ref<number>(-1)
 const savingShot = ref(false)
 
 const editShot = (shot: any, index: number) => {
-  editingShot.value = { ...shot }
+  editingShot.value = { 
+    ...shot,
+    character_ids: shot.characters ? shot.characters.map((c: any) => c.ID || c.id || c) : [],
+    prop_ids: shot.props ? shot.props.map((p: any) => p.ID || p.id || p) : [],
+    scene_id: shot.SceneID || shot.scene_id
+  }
   editingShotIndex.value = index
   shotEditDialogVisible.value = true
 }

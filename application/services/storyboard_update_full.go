@@ -141,6 +141,43 @@ func (s *StoryboardService) UpdateStoryboard(storyboardID string, updates map[st
 		"storyboard_id", storyboardID,
 		"fields_updated", len(updateData))
 
+	// Handle scene_id update
+	if val, ok := updates["scene_id"]; ok {
+		if idFloat, ok := val.(float64); ok {
+			sceneID := uint(idFloat)
+			if sceneID > 0 {
+				s.db.Model(&storyboard).Update("scene_id", sceneID)
+			} else {
+				s.db.Model(&storyboard).Update("scene_id", nil)
+			}
+		} else if val == nil {
+			s.db.Model(&storyboard).Update("scene_id", nil)
+		}
+	}
+
+	// Handle prop_ids update
+	if val, ok := updates["prop_ids"]; ok {
+		var propIDs []uint
+		if idSlice, ok := val.([]interface{}); ok {
+			for _, id := range idSlice {
+				if idFloat, ok := id.(float64); ok {
+					propIDs = append(propIDs, uint(idFloat))
+				}
+			}
+		}
+
+		if len(propIDs) >= 0 { // Allow empty list to clear props
+			var newProps []models.Prop
+			for _, id := range propIDs {
+				newProps = append(newProps, models.Prop{ID: id})
+			}
+			if err := s.db.Model(&storyboard).Association("Props").Replace(&newProps); err != nil {
+				return fmt.Errorf("failed to update storyboard props: %w", err)
+			}
+			s.log.Infow("Storyboard props updated", "storyboard_id", storyboardID, "count", len(newProps))
+		}
+	}
+
 	// Handle character_ids update
 	if val, ok := updates["character_ids"]; ok {
 		var charIDs []uint

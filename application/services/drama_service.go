@@ -80,7 +80,8 @@ func (s *DramaService) GetDrama(dramaID string) (*models.Drama, error) {
 		Preload("Episodes.Storyboards", func(db *gorm.DB) *gorm.DB {
 			return db.Order("storyboards.storyboard_number ASC")
 		}).
-		Preload("Episodes.Storyboards.Props"). // 加载分镜关联的道具
+		Preload("Episodes.Storyboards.Props").      // 加载分镜关联的道具
+		Preload("Episodes.Storyboards.Characters"). // 加载分镜关联的角色
 		First(&drama).Error
 
 	if err != nil {
