@@ -294,6 +294,7 @@ type UpdateSceneRequest struct {
 	ImagePrompt  *string `json:"image_prompt"`
 	VideoPrompt  *string `json:"video_prompt"`
 	VisualEffect *string `json:"visual_effect"`
+	Prompt       *string `json:"prompt"`
 }
 
 func (s *StoryboardCompositionService) UpdateScene(sceneID string, req *UpdateSceneRequest) error {
@@ -348,6 +349,9 @@ func (s *StoryboardCompositionService) UpdateScene(sceneID string, req *UpdateSc
 	}
 	if req.VisualEffect != nil {
 		updates["visual_effect"] = req.VisualEffect
+	}
+	if req.Prompt != nil {
+		updates["prompt"] = req.Prompt
 	}
 
 	// 执行更新
@@ -482,10 +486,11 @@ type CreateSceneRequest struct {
 
 func (s *StoryboardCompositionService) CreateScene(req *CreateSceneRequest) (*models.Scene, error) {
 	scene := &models.Scene{
-		DramaID:  req.DramaID,
-		Location: req.Location,
-		Prompt:   req.Prompt,
-		Status:   "draft",
+		DramaID:     req.DramaID,
+		Location:    req.Location,
+		Prompt:      req.Prompt,
+		Description: &req.Description,
+		Status:      "draft",
 	}
 
 	if req.ImageURL != "" {

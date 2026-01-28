@@ -143,6 +143,7 @@ type Scene struct {
 	EpisodeID       *uint          `gorm:"index:idx_scenes_episode_id" json:"episode_id"` // 场景所属章节
 	Location        string         `gorm:"type:varchar(200);not null" json:"location"`
 	Time            string         `gorm:"type:varchar(100);not null" json:"time"`
+	Description     *string        `gorm:"type:text" json:"description"`
 	Prompt          string         `gorm:"type:text;not null" json:"prompt"`
 	StoryboardCount int            `gorm:"default:1" json:"storyboard_count"`
 	ImageURL        *string        `gorm:"type:varchar(500)" json:"image_url"`

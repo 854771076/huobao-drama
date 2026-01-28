@@ -590,10 +590,18 @@
           </el-form-item>
           <el-form-item :label="$t('common.description')">
             <el-input
+              v-model="newScene.description"
+              type="textarea"
+              :rows="3"
+              :placeholder="$t('common.description')"
+            />
+          </el-form-item>
+          <el-form-item :label="$t('prop.prompt')">
+            <el-input
               v-model="newScene.prompt"
               type="textarea"
               :rows="4"
-              :placeholder="$t('common.description')"
+              :placeholder="$t('prop.promptPlaceholder')"
             />
           </el-form-item>
         </el-form>
@@ -868,6 +876,7 @@ const newProp = ref({
 
 const newScene = ref({
   location: "",
+  description: "",
   prompt: "",
   image_url: "",
 });
@@ -1229,6 +1238,7 @@ const openAddSceneDialog = () => {
   editingScene.value = null;
   newScene.value = {
     location: "",
+    description: "",
     prompt: "",
     image_url: "",
   };
@@ -1246,7 +1256,8 @@ const saveScene = async () => {
       // Update existing scene
       await dramaAPI.updateScene(editingScene.value.id, {
         location: newScene.value.location,
-        description: newScene.value.prompt,
+        description: newScene.value.description,
+        prompt: newScene.value.prompt,
         image_url: newScene.value.image_url,
       });
       // prompt field in Update is description or prompt? Check backend.
@@ -1290,8 +1301,8 @@ const saveScene = async () => {
       await dramaAPI.createScene({
         drama_id: drama.value!.id,
         location: newScene.value.location,
-        prompt: newScene.value.prompt, // Create uses prompt
-        description: newScene.value.prompt, // Sync description too
+        prompt: newScene.value.prompt,
+        description: newScene.value.description,
         image_url: newScene.value.image_url,
       });
     }
@@ -1308,7 +1319,8 @@ const editScene = (scene: any) => {
   editingScene.value = scene;
   newScene.value = {
     location: scene.location || scene.name || "",
-    prompt: scene.prompt || scene.description || "", // Try prompt first then description
+    description: scene.description || "",
+    prompt: scene.prompt || "",
     image_url: scene.image_url || "",
   };
   addSceneDialogVisible.value = true;
