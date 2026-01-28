@@ -179,7 +179,9 @@ export default {
       propList: 'Prop List',
       noProps: 'No props yet',
       propStats: 'Prop Statistics',
-      propsCreated: 'Props Created'
+      propsCreated: 'Props Created',
+      poseStats: 'Pose Statistics',
+      posesCreated: 'Poses Created'
     },
     styleSettings: 'Style Settings',
     defaultImageRatio: 'Default Image Ratio',
@@ -242,6 +244,29 @@ export default {
     startExtract: 'Start Extracting',
     extractSuccess: 'Prop extraction task submitted, AI analysis will take about 1 minute',
     generateImage: 'Generate Image'
+  },
+  pose: {
+    title: 'Pose Management',
+    add: 'Add Pose',
+    edit: 'Edit Pose',
+    delete: 'Delete Pose',
+    create: 'Create Pose',
+    name: 'Pose Name',
+    description: 'Pose Description',
+    generateImage: 'Generate Image',
+    list: 'Pose List',
+    noPoses: 'No Poses',
+    createSuccess: 'Pose created successfully',
+    updateSuccess: 'Pose updated successfully',
+    deleteSuccess: 'Pose deleted successfully',
+    deleteConfirm: 'Are you sure you want to delete pose "{name}"? This action cannot be undone.',
+    promptPlaceholder: 'Enter pose description for image generation',
+    namePlaceholder: 'Enter pose name',
+    extractFromScript: 'Extract from Script',
+    extractTitle: 'Extract Poses from Script',
+    extractTip: 'AI will analyze the script to automatically extract key poses and generate descriptions',
+    selectEpisode: 'Select Episode',
+    startExtract: 'Start Extracting'
   },
   scriptGenerationPage: {
     prevStep: 'Previous',

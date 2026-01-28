@@ -123,12 +123,14 @@ func (s *DramaService) GetDrama(dramaID string) (*models.Drama, error) {
 		Preload("Characters").          // 加载Drama级别的角色
 		Preload("Scenes").              // 加载Drama级别的场景
 		Preload("Props").               // 加载Drama级别的道具
+		Preload("Poses").               // 加载Drama级别的姿态
 		Preload("Episodes.Characters"). // 加载每个章节关联的角色
 		Preload("Episodes.Scenes").     // 加载每个章节关联的场景
 		Preload("Episodes.Storyboards", func(db *gorm.DB) *gorm.DB {
 			return db.Order("storyboards.storyboard_number ASC")
 		}).
 		Preload("Episodes.Storyboards.Props").      // 加载分镜关联的道具
+		Preload("Episodes.Storyboards.Poses").      // 加载分镜关联的姿态
 		Preload("Episodes.Storyboards.Characters"). // 加载分镜关联的角色
 		First(&drama).Error
 

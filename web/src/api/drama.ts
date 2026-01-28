@@ -104,6 +104,7 @@ export const dramaAPI = {
     characters?: string[];
     location?: string;
     time?: string;
+    prompt?: string;
     action?: string;
     dialogue?: string;
     description?: string;
@@ -114,7 +115,7 @@ export const dramaAPI = {
   },
 
   createScene(data: {
-    drama_id: number;
+    drama_id: number|string;
     location: string;
     prompt?: string;
     description?: string;

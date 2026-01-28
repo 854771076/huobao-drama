@@ -108,7 +108,7 @@ export const characterLibraryAPI = {
   },
 
   // 从剧本提取角色
-  extractFromEpisode(episodeId: number) {
+  extractFromEpisode(episodeId: number | string) {
     return request.post<{ task_id: string; message: string }>(`/episodes/${episodeId}/characters/extract`)
   }
 }

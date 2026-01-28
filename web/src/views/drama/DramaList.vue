@@ -87,6 +87,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
 import {
   Plus,
@@ -102,6 +103,7 @@ import type { Drama, DramaListQuery } from '@/types/drama'
 import { AppHeader, ProjectCard, ActionButton, DramaProjectDialog, EmptyState } from '@/components/common'
 
 const router = useRouter()
+const { t } = useI18n()
 const loading = ref(false)
 const dramas = ref<Drama[]>([])
 const total = ref(0)
@@ -123,7 +125,7 @@ const loadDramas = async () => {
     dramas.value = res.items || []
     total.value = res.pagination?.total || 0
   } catch (error: any) {
-    ElMessage.error(error.message || '加载失败')
+    ElMessage.error(error.message || t('message.loadingFailed'))
   } finally {
     loading.value = false
   }
@@ -148,10 +150,10 @@ const editDrama = (id: string) => {
 const deleteDrama = async (id: string) => {
   try {
     await dramaAPI.delete(id)
-    ElMessage.success('删除成功')
+    ElMessage.success(t('message.deleteSuccess'))
     loadDramas()
   } catch (error: any) {
-    ElMessage.error(error.message || '删除失败')
+    ElMessage.error(error.message || t('message.operationFailed'))
   }
 }
 

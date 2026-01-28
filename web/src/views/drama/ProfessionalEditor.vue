@@ -242,6 +242,55 @@
                 </div>
               </div>
 
+              <!-- 姿态(Poses) -->
+              <div class="cast-section">
+                <div class="section-label">
+                  姿态 (Poses)
+                  <el-button
+                    size="small"
+                    text
+                    :icon="Plus"
+                    @click="showPoseSelector = true"
+                    >添加姿态</el-button
+                  >
+                </div>
+                <div class="cast-list">
+                  <div
+                    v-for="pose in currentStoryboardPoses"
+                    :key="pose.id"
+                    class="cast-item active"
+                  >
+                    <div class="cast-avatar">
+                      <img
+                        v-if="pose.image_url"
+                        :src="pose.image_url"
+                        :alt="pose.name"
+                      />
+                      <el-icon v-else><User /></el-icon>
+                    </div>
+                    <div class="cast-name">{{ pose.name }}</div>
+                    <div
+                      class="cast-remove"
+                      @click.stop="togglePoseInShot(pose.id)"
+                      title="移除姿态"
+                    >
+                      <el-icon :size="14">
+                        <Close />
+                      </el-icon>
+                    </div>
+                  </div>
+                  <div
+                    v-if="
+                      !currentStoryboardPoses ||
+                      currentStoryboardPoses.length === 0
+                    "
+                    class="cast-empty"
+                  >
+                    暂无姿态
+                  </div>
+                </div>
+              </div>
+
               <!-- 视效设置 -->
               <div class="settings-section">
                 <div class="section-label">
@@ -1940,6 +1989,47 @@
       </template>
     </el-dialog>
 
+    <!-- 姿态选择对话框 -->
+    <el-dialog
+      v-model="showPoseSelector"
+      title="添加姿态到镜头"
+      width="800px"
+    >
+      <div class="character-selector-grid">
+        <div
+          v-for="pose in availablePoses"
+          :key="pose.id"
+          class="character-card"
+          :class="{ selected: isPoseInCurrentShot(pose.id) }"
+          @click="togglePoseInShot(pose.id)"
+        >
+          <div class="character-avatar-large">
+            <img v-if="pose.image_url" :src="pose.image_url" :alt="pose.name" />
+            <el-icon v-else :size="32"><User /></el-icon>
+          </div>
+          <div class="character-info">
+            <div class="character-name">{{ pose.name }}</div>
+            <div class="character-role">
+              {{ pose.type || "姿态" }}
+            </div>
+          </div>
+          <div class="character-check" v-if="isPoseInCurrentShot(pose.id)">
+            <el-icon color="#409eff" :size="24">
+              <Check />
+            </el-icon>
+          </div>
+        </div>
+        <div v-if="availablePoses.length === 0" class="empty-characters">
+          <el-empty description="暂无可用姿态" />
+        </div>
+      </div>
+      <template #footer>
+        <el-button @click="showPoseSelector = false">{{
+          $t("common.close")
+        }}</el-button>
+      </template>
+    </el-dialog>
+
     <!-- 场景选择对话框 -->
     <el-dialog v-model="showSceneSelector" title="选择场景背景" width="800px">
       <div class="scene-selector-grid">
@@ -2100,9 +2190,11 @@ import {
   Delete,
   Connection,
   Box,
+  User,
 } from "@element-plus/icons-vue";
 import { dramaAPI } from "@/api/drama";
 import { propAPI } from "@/api/prop";
+import { poseAPI } from "@/api/pose";
 import { optionAPI, type VisualOptions } from "@/api/option";
 import { generateFramePrompt, type FrameType } from "@/api/frame";
 import { imageAPI } from "@/api/image";
@@ -2139,7 +2231,9 @@ const storyboards = ref<Storyboard[]>([]);
 const characters = ref<any[]>([]);
 const availableScenes = ref<any[]>([]);
 const props = ref<any[]>([]);
+const poses = ref<any[]>([]);
 const showPropSelector = ref(false);
+const showPoseSelector = ref(false);
 
 const currentStoryboardId = ref<number | null>(null);
 const activeTab = ref("shot");
@@ -2767,10 +2861,21 @@ const availableProps = computed(() => {
   return props.value || [];
 });
 
+// 可选择的姿态列表
+const availablePoses = computed(() => {
+  return poses.value || [];
+});
+
 // 当前分镜的道具列表
 const currentStoryboardProps = computed(() => {
   if (!currentStoryboard.value?.props) return [];
   return currentStoryboard.value.props;
+});
+
+// 当前分镜的姿态列表
+const currentStoryboardPoses = computed(() => {
+  if (!currentStoryboard.value?.poses) return [];
+  return currentStoryboard.value.poses;
 });
 
 // 检查道具是否在当前镜头中
@@ -2804,6 +2909,40 @@ const togglePropInShot = async (propId: number) => {
     );
   } catch (error) {
     ElMessage.error($t("editor.updatePropFailed"));
+  }
+};
+
+// 检查姿态是否在当前镜头中
+const isPoseInCurrentShot = (poseId: number) => {
+  if (!currentStoryboard.value?.poses) return false;
+  return currentStoryboard.value.poses.some((p: any) => p.id === poseId);
+};
+
+// 切换姿态在镜头中的状态
+const togglePoseInShot = async (poseId: number) => {
+  if (!currentStoryboard.value) return;
+
+  let newPoses = [...(currentStoryboard.value.poses || [])];
+  if (isPoseInCurrentShot(poseId)) {
+    newPoses = newPoses.filter((p: any) => p.id !== poseId);
+  } else {
+    const pose = poses.value.find((p) => p.id === poseId);
+    if (pose) {
+      newPoses.push(pose);
+    }
+  }
+
+  // 乐观更新
+  currentStoryboard.value.poses = newPoses;
+
+  try {
+    const poseIds = newPoses.map((p: any) => p.id);
+    await poseAPI.associateWithStoryboard(
+      Number(currentStoryboard.value.id),
+      poseIds,
+    );
+  } catch (error) {
+    ElMessage.error("更新姿态失败");
   }
 };
 
@@ -3099,6 +3238,16 @@ const generateFrameImage = async () => {
       storyboardProps.forEach((prop: any) => {
         if (prop.image_url) {
           referenceImages.push(prop.image_url);
+        }
+      });
+    }
+
+    // 4. 添加当前镜头使用的姿态图片
+    const storyboardPoses = currentStoryboardPoses.value;
+    if (storyboardPoses && storyboardPoses.length > 0) {
+      storyboardPoses.forEach((pose: any) => {
+        if (pose.image_url) {
+          referenceImages.push(pose.image_url);
         }
       });
     }
@@ -3701,6 +3850,9 @@ const loadData = async () => {
 
     // 加载道具列表
     props.value = dramaRes.props || [];
+
+    // 加载姿态列表
+    poses.value = dramaRes.poses || [];
 
     // 加载视频素材库
     await loadVideoAssets();

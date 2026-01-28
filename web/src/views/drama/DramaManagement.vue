@@ -59,6 +59,15 @@
                 value-color="var(--primary)"
                 :description="$t('drama.management.propsCreated')"
               />
+              <StatCard
+                :label="$t('drama.management.poseStats')"
+                :value="posesCount"
+                :icon="User"
+                icon-color="var(--info)"
+                icon-bg="var(--info-light)"
+                value-color="var(--info)"
+                :description="$t('drama.management.posesCreated')"
+              />
             </div>
 
             <!-- 引导卡片：无章节时显示 -->
@@ -446,6 +455,71 @@
               :description="$t('drama.management.noProps')"
             />
           </el-tab-pane>
+
+          <!-- 姿态管理 -->
+          <el-tab-pane :label="$t('pose.list')" name="poses">
+            <div class="tab-header">
+              <h2>{{ $t("pose.list") }}</h2>
+              <div style="display: flex; gap: 10px">
+                <el-button
+                  :icon="Document"
+                  @click="openExtractPoseDialog"
+                  >{{ $t("pose.extractFromScript") }}</el-button
+                >
+                <el-button
+                  type="primary"
+                  :icon="Plus"
+                  @click="openAddPoseDialog"
+                  >{{ $t("common.add") }}</el-button
+                >
+              </div>
+            </div>
+
+            <el-row :gutter="16" style="margin-top: 16px">
+              <el-col :span="6" v-for="pose in drama?.poses" :key="pose.id">
+                <el-card shadow="hover" class="scene-card">
+                  <div class="scene-preview">
+                    <img
+                      v-if="pose.image_url"
+                      :src="fixImageUrl(pose.image_url)"
+                      :alt="pose.name"
+                    />
+                    <div v-else class="scene-placeholder">
+                      <el-icon :size="48"><User /></el-icon>
+                    </div>
+                  </div>
+
+                  <div class="scene-info">
+                    <h4>{{ pose.name }}</h4>
+                    <p class="desc">{{ pose.description }}</p>
+                  </div>
+
+                  <div class="scene-actions">
+                     <el-button size="small" @click="editPose(pose)">{{
+                      $t("common.edit")
+                    }}</el-button>
+                    <el-button
+                      size="small"
+                      @click="generatePoseImage(pose)"
+                      :disabled="!pose.description"
+                      >{{ $t("prop.generateImage") }}</el-button
+                    >
+                    <el-button
+                      size="small"
+                      type="danger"
+                      @click="deletePose(pose)"
+                      >{{ $t("common.delete") }}</el-button
+                    >
+                  </div>
+                </el-card>
+              </el-col>
+            </el-row>
+
+            <el-empty
+              v-if="!drama?.poses || drama.poses.length === 0"
+              :description="$t('pose.noPoses')"
+            />
+          </el-tab-pane>
         </el-tabs>
       </div>
 
@@ -733,6 +807,78 @@
         </template>
       </el-dialog>
 
+      <!-- 从剧本提取姿态对话框 -->
+      <el-dialog
+        v-model="extractPosesDialogVisible"
+        :title="$t('pose.extractTitle')"
+        width="500px"
+      >
+        <el-form label-width="100px">
+          <el-form-item :label="$t('pose.selectEpisode')">
+            <el-select
+              v-model="selectedExtractEpisodeId"
+              :placeholder="$t('common.pleaseSelect')"
+              style="width: 100%"
+            >
+              <el-option
+                v-for="ep in sortedEpisodes"
+                :key="ep.id"
+                :label="ep.title"
+                :value="ep.id"
+              />
+            </el-select>
+          </el-form-item>
+          <el-alert
+            :title="$t('pose.extractTip')"
+            type="info"
+            :closable="false"
+            show-icon
+          />
+        </el-form>
+        <template #footer>
+          <el-button @click="extractPosesDialogVisible = false">{{
+            $t("common.cancel")
+          }}</el-button>
+          <el-button
+            type="primary"
+            @click="handleExtractPoses"
+            :disabled="!selectedExtractEpisodeId"
+            >{{ $t("pose.startExtract") }}</el-button
+          >
+        </template>
+      </el-dialog>
+      <!-- 添加/编辑姿态对话框 -->
+      <el-dialog
+        v-model="addPoseDialogVisible"
+        :title="editingPose ? $t('pose.edit') : $t('pose.add')"
+        width="500px"
+      >
+        <el-form :model="newPose" label-width="80px">
+          <el-form-item :label="$t('pose.name')">
+            <el-input
+              v-model="newPose.name"
+              :placeholder="$t('pose.namePlaceholder')"
+            />
+          </el-form-item>
+          <el-form-item :label="$t('pose.description')">
+            <el-input
+              v-model="newPose.description"
+              type="textarea"
+              :rows="4"
+              :placeholder="$t('pose.promptPlaceholder')"
+            />
+          </el-form-item>
+        </el-form>
+        <template #footer>
+          <el-button @click="addPoseDialogVisible = false">{{
+            $t("common.cancel")
+          }}</el-button>
+          <el-button type="primary" @click="savePose">{{
+            $t("common.save")
+          }}</el-button>
+        </template>
+      </el-dialog>
+
       <!-- 从剧本提取角色对话框 -->
       <el-dialog
         v-model="extractCharactersDialogVisible"
@@ -821,6 +967,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from "vue";
 import { useRouter, useRoute } from "vue-router";
+import { useI18n } from "vue-i18n";
 import { ElMessage, ElMessageBox } from "element-plus";
 import {
   ArrowLeft,
@@ -833,11 +980,13 @@ import {
 import { dramaAPI } from "@/api/drama";
 import { characterLibraryAPI } from "@/api/character-library";
 import { propAPI } from "@/api/prop";
+import { poseAPI } from "@/api/pose";
 import type { Drama } from "@/types/drama";
 import { AppHeader, StatCard, EmptyState } from "@/components/common";
 
 const router = useRouter();
 const route = useRoute();
+const { t } = useI18n();
 
 const drama = ref<Drama>();
 const activeTab = ref((route.query.tab as string) || "overview");
@@ -852,10 +1001,14 @@ const extractPropsDialogVisible = ref(false);
 const extractCharactersDialogVisible = ref(false);
 const extractScenesDialogVisible = ref(false);
 
+const extractPosesDialogVisible = ref(false); // Added ref
+const addPoseDialogVisible = ref(false);
+const editingPose = ref<any>(null);
+
 const editingCharacter = ref<any>(null);
 const editingScene = ref<any>(null);
 const editingProp = ref<any>(null);
-const selectedExtractEpisodeId = ref<number | null>(null);
+const selectedExtractEpisodeId = ref<number | null |string>(null);
 
 const newCharacter = ref({
   name: "",
@@ -881,10 +1034,17 @@ const newScene = ref({
   image_url: "",
 });
 
+const newPose = ref({
+  name: "",
+  description: "",
+  image_url: "",
+});
+
 const episodesCount = computed(() => drama.value?.episodes?.length || 0);
 const charactersCount = computed(() => drama.value?.characters?.length || 0);
 const scenesCount = computed(() => scenes.value.length);
 const propsCount = computed(() => drama.value?.props?.length || 0);
+const posesCount = computed(() => drama.value?.poses?.length || 0);
 
 const sortedEpisodes = computed(() => {
   if (!drama.value?.episodes) return [];
@@ -1460,12 +1620,21 @@ const openExtractDialog = () => {
   }
 };
 
+const openExtractPoseDialog = () => {
+  extractPosesDialogVisible.value = true;
+  if (sortedEpisodes.value.length > 0 && !selectedExtractEpisodeId.value) {
+    selectedExtractEpisodeId.value = sortedEpisodes.value[0].id;
+  }
+};
+
 const handleExtractProps = async () => {
   if (!selectedExtractEpisodeId.value) return;
 
   try {
     const res = await propAPI.extractFromScript(selectedExtractEpisodeId.value);
     extractPropsDialogVisible.value = false;
+
+    ElMessage.success(t('imageDialog.taskSubmitted')); // Use i18n or text
 
     // 自动刷新几次
     let checkCount = 0;
@@ -1476,6 +1645,121 @@ const handleExtractProps = async () => {
     }, 5000);
   } catch (error: any) {
     ElMessage.error(error.message || "提取失败");
+  }
+};
+
+const handleExtractPoses = async () => {
+  if (!selectedExtractEpisodeId.value) return;
+
+  try {
+    const res = await poseAPI.extractFromScript(selectedExtractEpisodeId.value);
+    extractPosesDialogVisible.value = false;
+
+    ElMessage.success(t('imageDialog.taskSubmitted'));
+
+    // 自动刷新几次
+    let checkCount = 0;
+    const checkInterval = setInterval(() => {
+      loadDramaData();
+      checkCount++;
+      if (checkCount > 10) clearInterval(checkInterval);
+    }, 5000);
+  } catch (error: any) {
+    ElMessage.error(error.message || t('message.operationFailed'));
+  }
+};
+
+
+const openAddPoseDialog = () => {
+  editingPose.value = null;
+  newPose.value = {
+    name: "",
+    description: "",
+    image_url: "",
+  };
+  addPoseDialogVisible.value = true;
+};
+
+const savePose = async () => {
+  if (!newPose.value.name.trim()) {
+    ElMessage.warning("请输入姿态名称"); // Keep hardcoded or add key if preferred, but existing ones have mixed
+    return;
+  }
+
+  try {
+    const poseData = {
+      drama_id: drama.value!.id,
+      name: newPose.value.name,
+      description: newPose.value.description,
+      image_url: newPose.value.image_url,
+    };
+
+    if (editingPose.value) {
+      await poseAPI.update(editingPose.value.id, poseData);
+      ElMessage.success(t('pose.updateSuccess'));
+    } else {
+      await poseAPI.create(poseData as any);
+      ElMessage.success(t('pose.createSuccess'));
+    }
+
+    addPoseDialogVisible.value = false;
+    await loadDramaData();
+  } catch (error: any) {
+    ElMessage.error(error.message || t('message.operationFailed'));
+  }
+};
+
+const editPose = (pose: any) => {
+  editingPose.value = pose;
+  newPose.value = {
+    name: pose.name,
+    description: pose.description || "",
+    image_url: pose.image_url || "",
+  };
+  addPoseDialogVisible.value = true;
+};
+
+const deletePose = async (pose: any) => {
+  try {
+    await ElMessageBox.confirm(
+      t('pose.deleteConfirm', { name: pose.name }),
+      t('message.deleteConfirm'),
+      {
+        confirmButtonText: t('common.confirm'),
+        cancelButtonText: t('common.cancel'),
+        type: "warning",
+      },
+    );
+
+    await poseAPI.delete(pose.id);
+    ElMessage.success(t('pose.deleteSuccess'));
+    await loadDramaData();
+  } catch (error: any) {
+    if (error !== "cancel") {
+      ElMessage.error(error.message || t('message.operationFailed'));
+    }
+  }
+};
+
+const generatePoseImage = async (pose: any) => {
+  if (!pose.description) {
+    ElMessage.warning(t('pose.promptPlaceholder')); // Reuse placeholder as warning or keep hardcoded if exact match needed
+    editPose(pose);
+    return;
+  }
+
+  try {
+    await poseAPI.generateImage(pose.id);
+    ElMessage.success(t('imageDialog.taskSubmitted'));
+    startPolling(loadDramaData);
+  } catch (error: any) {
+    ElMessage.error(error.message || t('image.generateFailed'));
+  }
+};
+
+const handlePoseImageSuccess = (response: any) => {
+  if (response.data && response.data.url) {
+    newPose.value.image_url = response.data.url;
   }
 };
 

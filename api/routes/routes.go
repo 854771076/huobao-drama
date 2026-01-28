@@ -54,6 +54,7 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *logger.Logger, localStora
 	audioExtractionHandler := handlers2.NewAudioExtractionHandler(log, cfg.Storage.LocalPath)
 	settingsHandler := handlers2.NewSettingsHandler(cfg, log)
 	propHandler := handlers2.NewPropHandler(db, cfg, log, aiService, imageGenService)
+	poseHandler := handlers2.NewPoseHandler(db, cfg, log, aiService, imageGenService)
 	optionHandler := handlers2.NewOptionHandler(cfg, log)
 
 	api := r.Group("/api/v1")
@@ -81,6 +82,7 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *logger.Logger, localStora
 			dramas.PUT("/:id/episodes", dramaHandler.SaveEpisodes)
 			dramas.PUT("/:id/progress", dramaHandler.SaveProgress)
 			dramas.GET("/:id/props", propHandler.ListProps) // Added prop list route
+			dramas.GET("/:id/poses", poseHandler.ListPoses) // Added pose list route
 		}
 
 		aiConfigs := api.Group("/ai-configs")
@@ -128,6 +130,14 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *logger.Logger, localStora
 			props.POST("/:id/generate", propHandler.GenerateImage)
 		}
 
+		poses := api.Group("/poses")
+		{
+			poses.POST("", poseHandler.CreatePose)
+			poses.PUT("/:id", poseHandler.UpdatePose)
+			poses.DELETE("/:id", poseHandler.DeletePose)
+			poses.POST("/:id/generate", poseHandler.GenerateImage)
+		}
+
 		// 文件上传路由
 		upload := api.Group("/upload")
 		{
@@ -140,6 +150,7 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *logger.Logger, localStora
 			// 分镜头
 			episodes.POST("/:episode_id/storyboards", storyboardHandler.GenerateStoryboard)
 			episodes.POST("/:episode_id/props/extract", propHandler.ExtractProps)
+			episodes.POST("/:episode_id/poses/extract", poseHandler.ExtractPoses) // Added handler
 			episodes.POST("/:episode_id/characters/extract", characterLibraryHandler.ExtractCharacters)
 			episodes.GET("/:episode_id/storyboards", sceneHandler.GetStoryboardsForEpisode)
 			episodes.POST("/:episode_id/finalize", dramaHandler.FinalizeEpisode)
@@ -213,6 +224,7 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *logger.Logger, localStora
 			storyboards.PUT("/:id", storyboardHandler.UpdateStoryboard)
 			storyboards.DELETE("/:id", storyboardHandler.DeleteStoryboard)
 			storyboards.POST("/:id/props", propHandler.AssociateProps)
+			storyboards.POST("/:id/poses", poseHandler.AssociatePoses)
 			storyboards.POST("/:id/frame-prompt", framePromptHandler.GenerateFramePrompt)
 			storyboards.POST("/:id/refresh-video-prompt", storyboardHandler.RefreshVideoPrompt)
 			storyboards.GET("/:id/frame-prompts", handlers2.GetStoryboardFramePrompts(db, log))
