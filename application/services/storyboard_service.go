@@ -794,6 +794,7 @@ func (s *StoryboardService) saveStoryboards(episodeID string, storyboards []Stor
 			}
 
 			// 使用AI直接返回的SceneID
+			// RefreshVideoPrompt 刷新分镜的视频提示词
 			if sb.SceneID != nil {
 				s.log.Infow("Background ID from AI",
 					"shot_number", sb.ShotNumber,
@@ -1011,4 +1012,54 @@ func getString(s *string) string {
 		return ""
 	}
 	return *s
+}
+
+// RefreshVideoPrompt 刷新分镜的视频提示词
+func (s *StoryboardService) RefreshVideoPrompt(storyboardID uint) (string, error) {
+	var sb models.Storyboard
+	if err := s.db.Preload("Episode").First(&sb, storyboardID).Error; err != nil {
+		return "", fmt.Errorf("storyboard not found: %w", err)
+	}
+
+	// 尝试从Description中提取Emotion
+	emotion := ""
+	if sb.Description != nil {
+		desc := *sb.Description
+		if idx := strings.Index(desc, "【情绪】"); idx != -1 {
+			emotion = desc[idx+len("【情绪】"):]
+			// 假设情绪是最后一部分，或者直到换行
+			if endIdx := strings.Index(emotion, "\n"); endIdx != -1 {
+				emotion = emotion[:endIdx]
+			}
+		}
+	}
+
+	// 转换为 service 内部的 Storyboard 结构体以便复用 generateVideoPrompt
+	internalSB := Storyboard{
+		ShotNumber:   sb.StoryboardNumber,
+		Title:        getString(sb.Title),
+		ShotType:     getString(sb.ShotType),
+		Angle:        getString(sb.Angle),
+		Time:         getString(sb.Time),
+		Location:     getString(sb.Location),
+		Movement:     getString(sb.Movement),
+		Action:       getString(sb.Action),
+		Dialogue:     getString(sb.Dialogue),
+		Result:       getString(sb.Result),
+		Atmosphere:   getString(sb.Atmosphere),
+		Emotion:      emotion,
+		Duration:     sb.Duration,
+		BgmPrompt:    getString(sb.BgmPrompt),
+		VisualEffect: getString(sb.VisualEffect),
+		SoundEffect:  getString(sb.SoundEffect),
+	}
+
+	newPrompt := s.generateVideoPrompt(internalSB)
+
+	// 更新数据库
+	if err := s.db.Model(&sb).Update("video_prompt", newPrompt).Error; err != nil {
+		return "", fmt.Errorf("failed to update video prompt: %w", err)
+	}
+
+	return newPrompt, nil
 }

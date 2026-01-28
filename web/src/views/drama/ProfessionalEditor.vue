@@ -2583,6 +2583,20 @@ const selectPreviousLastFrame = (img: any) => {
   ElMessage.success("已添加为首帧参考");
 };
 
+// 监听Tab切换，如果是video标签，自动刷新视频提示词
+watch(activeTab, async (newTab) => {
+  if (newTab === "video" && currentStoryboard.value) {
+    try {
+      const res = await dramaAPI.refreshVideoPrompt(Number(currentStoryboard.value.id));
+      if (currentStoryboard.value && res.prompt) {
+        currentStoryboard.value.video_prompt = res.prompt;
+      }
+    } catch (e) {
+      console.error("Failed to refresh video prompt", e);
+    }
+  }
+});
+
 // 监听帧类型切换，从接口加载
 watch(selectedFrameType, async (newType) => {
   stopPolling();

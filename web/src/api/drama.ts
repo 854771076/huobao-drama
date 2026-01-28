@@ -160,5 +160,10 @@ export const dramaAPI = {
   // 获取镜头的所有帧提示词
   getFramePrompts(storyboardId: number) {
     return request.get<{ frame_prompts: any[] }>(`/storyboards/${storyboardId}/frame-prompts`);
+  },
+
+  // 刷新镜头的视频提示词
+  refreshVideoPrompt(storyboardId: number) {
+    return request.post<{ prompt: string }>(`/storyboards/${storyboardId}/refresh-video-prompt`);
   }
 }
