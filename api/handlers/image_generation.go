@@ -80,20 +80,14 @@ func (h *ImageGenerationHandler) ExtractBackgroundsForEpisode(c *gin.Context) {
 	// 接收可选的 model 和 style 参数
 	var req struct {
 		Model string `json:"model"`
-		Style string `json:"style"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		// 如果没有提供body或者解析失败，使用空字符串（使用默认模型和风格）
 		req.Model = ""
-		req.Style = ""
-	}
-	// 如果style为空，使用配置中的默认风格
-	if req.Style == "" {
-		req.Style = h.config.Style.DefaultStyle + ", " + h.config.Style.DefaultSceneStyle
 	}
 
 	// 直接调用服务层的异步方法，该方法会创建任务并返回任务ID
-	taskID, err := h.imageService.ExtractBackgroundsForEpisode(episodeID, req.Model, req.Style)
+	taskID, err := h.imageService.ExtractBackgroundsForEpisode(episodeID, req.Model)
 	if err != nil {
 		h.log.Errorw("Failed to extract backgrounds", "error", err, "episode_id", episodeID)
 		response.InternalError(c, err.Error())

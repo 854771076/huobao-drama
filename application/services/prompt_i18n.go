@@ -171,14 +171,7 @@ emotion_intensity: 对应枚举库的数字。
 func (p *PromptI18n) GetSceneExtractionPrompt(style, imageRatio string) string {
 	// 如果未指定风格，使用配置中的默认风格
 	if style == "" {
-		style = p.config.Style.DefaultSceneStyle
-	} else {
-		// 默认风格加style
 		style = p.config.Style.DefaultSceneStyle + ", " + style
-	}
-	// 如果配置也没有，使用硬编码默认值
-	if style == "" {
-		style = "Modern Japanese anime style"
 	}
 
 	if imageRatio == "" {

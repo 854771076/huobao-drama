@@ -794,7 +794,7 @@ func (s *ImageGenerationService) GetScencesForEpisode(episodeID string) ([]*mode
 }
 
 // ExtractBackgroundsForEpisode 从剧本内容中提取场景并保存到项目级别数据库
-func (s *ImageGenerationService) ExtractBackgroundsForEpisode(episodeID string, model string, style string) (string, error) {
+func (s *ImageGenerationService) ExtractBackgroundsForEpisode(episodeID string, model string) (string, error) {
 	var episode models.Episode
 	if err := s.db.Preload("Storyboards").First(&episode, episodeID).Error; err != nil {
 		return "", fmt.Errorf("episode not found")
@@ -813,14 +813,14 @@ func (s *ImageGenerationService) ExtractBackgroundsForEpisode(episodeID string, 
 	}
 
 	// 异步处理场景提取
-	go s.processBackgroundExtraction(task.ID, episodeID, model, style)
+	go s.processBackgroundExtraction(task.ID, episodeID, model)
 
 	s.log.Infow("Background extraction task created", "task_id", task.ID, "episode_id", episodeID)
 	return task.ID, nil
 }
 
 // processBackgroundExtraction 异步处理场景提取
-func (s *ImageGenerationService) processBackgroundExtraction(taskID string, episodeID string, model string, style string) {
+func (s *ImageGenerationService) processBackgroundExtraction(taskID string, episodeID string, model string) {
 	// 更新任务状态为处理中
 	s.taskService.UpdateTaskStatus(taskID, "processing", 0, "正在提取场景信息...")
 
@@ -843,19 +843,22 @@ func (s *ImageGenerationService) processBackgroundExtraction(taskID string, epis
 	// Fetch Drama to get ratio override
 	var drama models.Drama
 	ratio := ""
+	style := ""
 	if err := s.db.First(&drama, dramaID).Error; err == nil {
 		if drama.DefaultImageRatio != nil {
 			ratio = *drama.DefaultImageRatio
 		}
 		// Also override style if provided and call didn't specify one (or maybe combine?)
 		// The `style` arg comes from handler, currently handler passes empty string or query param.
-		if style == "" && drama.DefaultSceneStyle != nil {
-			style = *drama.DefaultSceneStyle
+		if style == "" && drama.DefaultStyle != nil && drama.DefaultSceneStyle != nil {
+			style = *drama.DefaultStyle + ", " + *drama.DefaultSceneStyle
 		} else if style == "" && drama.DefaultStyle != nil {
 			style = *drama.DefaultStyle
+		} else if style == "" && drama.DefaultSceneStyle != nil {
+			style = *drama.DefaultSceneStyle
 		}
 	}
-
+	s.log.Infow("Extracting backgrounds from script", "episode_id", episodeID, "model", model, "task_id", taskID, "style", style, "ratio", ratio)
 	// 使用AI从剧本内容中提取场景
 	backgroundsInfo, err := s.extractBackgroundsFromScript(*episode.ScriptContent, dramaID, model, style, ratio)
 	if err != nil {
