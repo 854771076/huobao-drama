@@ -23,14 +23,19 @@ type ChatMessage struct {
 	Content string `json:"content"`
 }
 
+type ResponseFormat struct {
+	Type string `json:"type"`
+}
+
 type ChatCompletionRequest struct {
-	Model               string        `json:"model"`
-	Messages            []ChatMessage `json:"messages"`
-	Temperature         float64       `json:"temperature,omitempty"`
-	MaxTokens           *int          `json:"max_tokens,omitempty"`
-	MaxCompletionTokens *int          `json:"max_completion_tokens,omitempty"`
-	TopP                float64       `json:"top_p,omitempty"`
-	Stream              bool          `json:"stream,omitempty"`
+	Model               string          `json:"model"`
+	Messages            []ChatMessage   `json:"messages"`
+	Temperature         float64         `json:"temperature,omitempty"`
+	MaxTokens           *int            `json:"max_tokens,omitempty"`
+	MaxCompletionTokens *int            `json:"max_completion_tokens,omitempty"`
+	TopP                float64         `json:"top_p,omitempty"`
+	Stream              bool            `json:"stream,omitempty"`
+	ResponseFormat      *ResponseFormat `json:"response_format,omitempty"`
 }
 
 type ChatCompletionResponse struct {

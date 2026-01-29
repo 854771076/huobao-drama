@@ -751,3 +751,64 @@ func (p *PromptI18n) FormatUserPrompt(key string, args ...interface{}) string {
 	}
 	return template
 }
+
+// GetStyleGenerationPrompt 获取风格配置生成提示词
+func (p *PromptI18n) GetStyleGenerationPrompt(description string) string {
+	if p.IsEnglish() {
+		return fmt.Sprintf(`
+You are a professional art director for film and drama. Based on the following project description, generate a detailed visual style configuration in JSON format.
+
+Project Description:
+"%s"
+
+Output format MUST be a valid JSON object with the following structure:
+{
+    "default_style": {
+        "style_base": ["keyword1", "keyword2", ...],
+        "lighting": ["keyword1", "keyword2", ...],
+        "texture": ["keyword1", "keyword2", ...],
+        "composition": ["keyword1", "keyword2", ...],
+        "style_references": ["artist/movie1", "artist/movie2", ...],
+        "consistency_controls": ["keyword1", "keyword2", ...]
+    }
+}
+
+Instructions:
+1. style_base: General artistic style (e.g., Cyberpunk, Noir, Ghibli, Watercolor, Realistic 8k, etc.)
+2. lighting: Lighting conditions and mood (e.g., Neon glow, Natural light, Cinematic lighting, Rembrant lighting, etc.)
+3. texture: Material and noise details (e.g., Film grain, Smooth, Matte painting, Detailed skin texture, etc.)
+4. composition: Camera angles and framing suggestions (e.g., Wide angle, Rule of thirds, Dynamic angle, etc.)
+5. style_references: Famous artists, movies, or photography styles that match this description.
+6. consistency_controls: Keywords to ensure consistent look across multiple generated images (e.g., same lens, same color palette, etc.)
+7. Return ONLY the JSON object, no markdown formatting, no explanations.
+`, description)
+	}
+
+	return fmt.Sprintf(`
+你是一位专业的影视美术指导。请根据以下项目描述，生成一份详细的视觉风格配置（JSON格式）。
+
+项目描述：
+"%s"
+
+输出格式必须是符合以下结构的有效JSON对象：
+{
+    "default_style": {
+        "style_base": ["关键词1", "关键词2", ...],
+        "lighting": ["关键词1", "关键词2", ...],
+        "texture": ["关键词1", "关键词2", ...],
+        "composition": ["关键词1", "关键词2", ...],
+        "style_references": ["艺术家/电影1", "艺术家/电影2", ...],
+        "consistency_controls": ["关键词1", "关键词2", ...]
+    }
+}
+
+说明：
+1. style_base: 整体艺术风格（如：赛博朋克、黑色电影、吉卜力风格、水彩、Realisitic 8k等）
+2. lighting: 光照条件和氛围（如：霓虹光、自然光、电影质感光效、伦勃朗光等）
+3. texture: 材质和噪点细节（如：胶片颗粒、平滑、哑光绘画、细腻皮肤纹理等）
+4. composition: 镜头角度和构图建议（如：广角、三分法、动态角度等）
+5. style_references: 符合描述的著名艺术家、电影或摄影风格引用。
+6. consistency_controls: 用于确保多张生成图片风格一致的关键词（如：同一镜头参数、统一色调等）
+7. 仅返回JSON对象，不要包含markdown格式，不要包含解释。
+`, description)
+}

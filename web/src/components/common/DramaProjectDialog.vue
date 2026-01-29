@@ -71,16 +71,41 @@
         </el-col>
       </el-row>
 
-      <el-form-item :label="$t('drama.defaultStyle')" prop="default_style">
+      <el-form-item prop="default_style" class="style-config-item">
+        <template #label>
+          <div class="form-item-header">
+            <span class="label-text">{{ $t('drama.defaultStyle') }}</span>
+            <el-tooltip 
+              :content="form.description ? $t('drama.styleGen.description') : $t('drama.projectDescPlaceholder')" 
+              placement="top"
+            >
+              <el-button 
+                type="primary" 
+                link
+                size="small" 
+                :loading="generatingStyle"
+                @click="handleGenerateStyle"
+                class="generate-btn"
+              >
+                <el-icon class="mr-1"><MagicStick /></el-icon>
+                {{ $t('drama.styleGen.generateBtn') }}
+              </el-button>
+            </el-tooltip>
+          </div>
+        </template>
+        
         <el-input 
-          v-model="form.default_style" 
+          v-model="styleConfigStr" 
           type="textarea" 
-          :rows="2"
-          :placeholder="$t('drama.defaultStylePlaceholder')"
+          :rows="6"
+          :placeholder="$t('drama.styleGen.previewPlaceholder')"
+          class="json-input"
         />
       </el-form-item>
 
       <el-collapse>
+        
+
         <el-collapse-item :title="$t('drama.advancedStyleSettings')" name="1">
           <el-form-item :label="$t('drama.defaultRoleStyle')" prop="default_role_style">
             <el-input v-model="form.default_role_style" type="textarea" :rows="2" :placeholder="$t('drama.roleStylePlaceholder')" />
@@ -160,9 +185,10 @@
 import { ref, reactive, watch, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
-import { Plus, Edit } from '@element-plus/icons-vue'
+import { Plus, Edit, MagicStick } from '@element-plus/icons-vue'
 import { dramaAPI } from '@/api/drama'
 import { optionAPI, type VisualOptions } from '@/api/option'
+import { generationAPI } from '@/api/generation'
 import type { CreateDramaRequest } from '@/types/drama'
 import { useI18n } from 'vue-i18n'
 
@@ -182,11 +208,15 @@ const emit = defineEmits<{
 }>()
 
 const router = useRouter()
-const { locale } = useI18n()
+const { locale, t } = useI18n()
 const formRef = ref<FormInstance>()
 const loading = ref(false) // Loading initial data
 const submitting = ref(false) // Submitting form
 const visualOptions = ref<Partial<VisualOptions>>({})
+
+// Style generation state
+const generatingStyle = ref(false)
+const styleConfigStr = ref('')
 
 const isEdit = computed(() => !!props.dramaId)
 
@@ -200,10 +230,10 @@ watch(visible, (val) => {
 })
 
 // Form data
-const form = reactive<CreateDramaRequest & { default_style: string }>({
+const form = reactive<CreateDramaRequest & { default_style?: any }>({
   title: '',
   description: '',
-  default_style: '',
+  default_style: undefined,
   default_image_ratio: '16:9',
   default_video_ratio: '16:9',
   default_role_style: '',
@@ -213,6 +243,27 @@ const form = reactive<CreateDramaRequest & { default_style: string }>({
   default_prop_ratio: '',
   default_image_size: ''
 })
+
+const handleGenerateStyle = async () => {
+  if (!form.description) {
+    ElMessage.error(t('drama.styleGen.noDescription'))
+    return
+  }
+  
+  generatingStyle.value = true
+  try {
+    const res = await generationAPI.generateStyle(form.description)
+    if (res.default_style) {
+        form.default_style = JSON.stringify(res.default_style, null, 2)
+        styleConfigStr.value = JSON.stringify(res.default_style, null, 2)
+        ElMessage.success(t('drama.styleGen.success'))
+    }
+  } catch (error: any) {
+    ElMessage.error(error.message || t('drama.styleGen.failed'))
+  } finally {
+    generatingStyle.value = false
+  }
+}
 
 // Validation rules
 const rules: FormRules = {
@@ -235,7 +286,8 @@ const fetchOptions = async () => {
 const resetForm = () => {
   form.title = ''
   form.description = ''
-  form.default_style = ''
+  form.default_style = undefined
+  styleConfigStr.value = ''
   form.default_image_ratio = '16:9'
   form.default_video_ratio = '16:9'
   form.default_role_style = ''
@@ -257,7 +309,18 @@ const handleOpen = async () => {
       const drama = await dramaAPI.get(props.dramaId)
       form.title = drama.title
       form.description = drama.description || ''
-      form.default_style = drama.default_style || ''
+      
+      // Update default_style logic
+      if (drama.default_style) {
+          form.default_style = drama.default_style
+          styleConfigStr.value = typeof drama.default_style === 'object' 
+             ? JSON.stringify(drama.default_style, null, 2) 
+             : drama.default_style
+      } else {
+          form.default_style = undefined
+          styleConfigStr.value = ''
+      }
+      
       form.default_image_ratio = drama.default_image_ratio || '16:9'
       form.default_video_ratio = drama.default_video_ratio || '16:9'
       form.default_role_style = drama.default_role_style || ''
@@ -357,6 +420,23 @@ const handleSubmit = async () => {
   margin-bottom: 1.25rem;
 }
 
+.form-item-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+}
+
+.generate-btn {
+  font-weight: normal;
+  padding: 0;
+  height: auto;
+}
+
+.mr-1 {
+  margin-right: 4px;
+}
+
 .project-form :deep(.el-form-item__label) {
   font-weight: 500;
   color: var(--text-primary);
@@ -394,6 +474,12 @@ const handleSubmit = async () => {
 .project-form :deep(.el-input__count) {
   color: var(--text-muted);
   background: transparent;
+}
+
+.json-input :deep(.el-textarea__inner) {
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', 'source-code-pro', monospace;
+  font-size: 0.85rem;
+  line-height: 1.5;
 }
 
 /* ========================================

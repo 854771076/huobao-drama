@@ -17,10 +17,12 @@ type Drama struct {
 	TotalDuration int     `gorm:"default:0" json:"total_duration"`
 	Status        string  `gorm:"type:varchar(20);default:'draft';not null" json:"status"`
 	// 新增项目属性：样式和比例覆盖配置
-	DefaultStyle      *string        `gorm:"type:text" json:"default_style"`
-	DefaultRoleStyle  *string        `gorm:"type:text" json:"default_role_style"`
-	DefaultSceneStyle *string        `gorm:"type:text" json:"default_scene_style"`
-	DefaultPropStyle  *string        `gorm:"type:text" json:"default_prop_style"`
+	// 新增项目属性：样式和比例覆盖配置
+	DefaultStyle      *string `gorm:"type:text" json:"default_style"`
+	DefaultRoleStyle  *string `gorm:"type:text" json:"default_role_style"`
+	DefaultSceneStyle *string `gorm:"type:text" json:"default_scene_style"`
+	DefaultPropStyle  *string `gorm:"type:text" json:"default_prop_style"`
+	// 新增：AI生成的项目风格配置
 	DefaultImageRatio *string        `gorm:"type:varchar(20)" json:"default_image_ratio"`
 	DefaultVideoRatio *string        `gorm:"type:varchar(20)" json:"default_video_ratio"`
 	DefaultPropRatio  *string        `gorm:"type:varchar(20)" json:"default_prop_ratio"`

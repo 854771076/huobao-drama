@@ -201,7 +201,16 @@ export default {
     sceneStylePlaceholder: 'Specific style for scenes',
     propStylePlaceholder: 'Specific style for props',
     selectRatio: 'Select Ratio',
-    defaultOption: 'Default'
+    defaultOption: 'Default',
+    styleGen: {
+      title: 'Style Configuration',
+      description: 'Generate style configuration based on project description',
+      generateBtn: 'AI Generate Style',
+      previewPlaceholder: 'Generated Style Configuration JSON',
+      success: 'Style configuration generated successfully',
+      failed: 'Generation failed',
+      noDescription: 'No description'
+    }
   },
   character: {
     title: 'Character Management',
