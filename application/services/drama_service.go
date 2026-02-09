@@ -17,10 +17,16 @@ type DramaService struct {
 	db      *gorm.DB
 	log     *logger.Logger
 	baseURL string
+	db      *gorm.DB
+	log     *logger.Logger
+	baseURL string
 }
 
 func NewDramaService(db *gorm.DB, cfg *config.Config, log *logger.Logger) *DramaService {
 	return &DramaService{
+		db:      db,
+		log:     log,
+		baseURL: cfg.Storage.BaseURL,
 		db:      db,
 		log:     log,
 		baseURL: cfg.Storage.BaseURL,
@@ -244,8 +250,6 @@ func (s *DramaService) GetDrama(dramaID string) (*models.Drama, error) {
 
 	// 为所有场景的 local_path 添加 base_url 前缀
 	// s.addBaseURLToScenes(&drama)
-
-	// local_path 已通过 Preload 从 characters 和 scenes 表加载，无需额外查询
 
 	return &drama, nil
 }
