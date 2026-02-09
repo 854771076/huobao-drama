@@ -8,6 +8,10 @@ export const generationAPI = {
     return request.post<{ task_id: string; status: string; message: string }>('/generation/characters', data)
   },
 
+  generateStyle(description: string) {
+    return request.post<{ default_style: any }>('/generation/style', { description })
+  },
+
   generateStoryboard(episodeId: string, model?: string) {
     return request.post<{ task_id: string; status: string; message: string }>(`/episodes/${episodeId}/storyboards`, { model })
   },

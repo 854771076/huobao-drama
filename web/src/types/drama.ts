@@ -7,7 +7,7 @@ export interface Drama {
   description?: string
   genre?: string
   style?: string
-  default_style?: string
+  default_style?: any // AI generated style configuration (previously style_config)
   default_role_style?: string
   default_scene_style?: string
   default_prop_style?: string
@@ -17,7 +17,6 @@ export interface Drama {
   default_image_size?: string
   default_role_ratio?: string
   total_episodes: number
-  total_duration: number
   total_scenes?: number
   duration?: number
   status: DramaStatus
@@ -155,7 +154,7 @@ export interface UpdateDramaRequest {
   genre?: string
   tags?: string
   status?: DramaStatus
-  default_style?: string
+  default_style?: any
   default_role_style?: string
   default_scene_style?: string
   default_prop_style?: string

@@ -219,7 +219,16 @@ export default {
     sceneStylePlaceholder: '场景生成专用风格',
     propStylePlaceholder: '道具生成专用风格',
     selectRatio: '选择比例',
-    defaultOption: '默认'
+    defaultOption: '默认',
+    styleGen: {
+      title: '风格配置',
+      description: '根据项目描述生成风格配置',
+      generateBtn: 'AI 生成风格',
+      previewPlaceholder: '生成的风格配置JSON',
+      success: '风格配置生成成功',
+      failed: '生成失败',
+      noDescription: '请先填写项目描述'
+    }
   },
   character: {
     title: '角色管理',

@@ -98,6 +98,8 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *logger.Logger, localStora
 		generation := api.Group("/generation")
 		{
 			generation.POST("/characters", scriptGenHandler.GenerateCharacters)
+			styleGenHandler := handlers2.NewStyleGenerationHandler(aiService, cfg, log)
+			generation.POST("/style", styleGenHandler.GenerateStyle)
 		}
 
 		// 角色库路由
