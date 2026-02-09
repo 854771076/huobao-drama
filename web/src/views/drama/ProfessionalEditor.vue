@@ -610,6 +610,8 @@
                       <el-image
                         v-if="hasImage(img)"
                         :src="getImageUrl(img)"
+                        v-if="hasImage(img)"
+                        :src="getImageUrl(img)"
                         :preview-src-list="
                           generatedImages
                             .filter((i) => hasImage(i))

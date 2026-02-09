@@ -11,8 +11,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-
-	"github.com/google/uuid"
 )
 
 type LocalStorage struct {
