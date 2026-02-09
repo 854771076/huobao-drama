@@ -579,10 +579,18 @@
           </el-form-item>
           <el-form-item :label="$t('common.description')">
             <el-input
+              v-model="newScene.description"
+              type="textarea"
+              :rows="3"
+              :placeholder="$t('common.description')"
+            />
+          </el-form-item>
+          <el-form-item :label="$t('prop.prompt')">
+            <el-input
               v-model="newScene.prompt"
               type="textarea"
               :rows="4"
-              :placeholder="$t('common.description')"
+              :placeholder="$t('prop.promptPlaceholder')"
             />
           </el-form-item>
         </el-form>
@@ -860,6 +868,7 @@ const newProp = ref({
 
 const newScene = ref({
   location: "",
+  description: "",
   prompt: "",
   image_url: "",
   local_path: "",
@@ -1221,6 +1230,7 @@ const openAddSceneDialog = () => {
   editingScene.value = null;
   newScene.value = {
     location: "",
+    description: "",
     prompt: "",
     image_url: "",
   };
@@ -1238,7 +1248,8 @@ const saveScene = async () => {
       // Update existing scene
       await dramaAPI.updateScene(editingScene.value.id, {
         location: newScene.value.location,
-        description: newScene.value.prompt,
+        description: newScene.value.description,
+        prompt: newScene.value.prompt,
         image_url: newScene.value.image_url,
         local_path: newScene.value.local_path,
       });
@@ -1284,7 +1295,7 @@ const saveScene = async () => {
         drama_id: drama.value!.id,
         location: newScene.value.location,
         prompt: newScene.value.prompt,
-        description: newScene.value.prompt,
+        description: newScene.value.description,
         image_url: newScene.value.image_url,
         local_path: newScene.value.local_path,
       });
@@ -1302,7 +1313,8 @@ const editScene = (scene: any) => {
   editingScene.value = scene;
   newScene.value = {
     location: scene.location || scene.name || "",
-    prompt: scene.prompt || scene.description || "",
+    description: scene.description || "",
+    prompt: scene.prompt || "",
     image_url: scene.image_url || "",
     local_path: scene.local_path || "",
   };

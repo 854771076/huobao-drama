@@ -41,6 +41,7 @@ export interface Character {
   role?: string
   description?: string
   appearance?: string
+  image_prompt?: string
   personality?: string
   voice_style?: string
   background?: string
