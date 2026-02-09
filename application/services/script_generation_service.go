@@ -1,6 +1,7 @@
 package services
 
 import (
+	"encoding/json"
 	"fmt"
 	"strconv"
 
@@ -128,12 +129,12 @@ func (s *ScriptGenerationService) processCharacterGeneration(taskID string, req 
 
 	// AI直接返回数组格式
 	var result []struct {
-		Name        string `json:"name"`
-		Role        string `json:"role"`
-		Description string `json:"description"`
-		Personality string `json:"personality"`
-		Appearance  string `json:"appearance"`
-		VoiceStyle  string `json:"voice_style"`
+		Name        string          `json:"name"`
+		Role        string          `json:"role"`
+		Description string          `json:"description"`
+		Personality string          `json:"personality"`
+		Appearance  json.RawMessage `json:"appearance"`
+		VoiceStyle  string          `json:"voice_style"`
 	}
 
 	if err := utils.SafeParseAIJSON(text, &result); err != nil {
@@ -156,13 +157,14 @@ func (s *ScriptGenerationService) processCharacterGeneration(taskID string, req 
 
 		// 角色不存在，创建新角色
 		dramaID, _ := strconv.ParseUint(req.DramaID, 10, 32)
+		appearanceStr := string(char.Appearance)
 		character := models.Character{
 			DramaID:     uint(dramaID),
 			Name:        char.Name,
 			Role:        &char.Role,
 			Description: &char.Description,
 			Personality: &char.Personality,
-			Appearance:  &char.Appearance,
+			Appearance:  &appearanceStr,
 			VoiceStyle:  &char.VoiceStyle,
 		}
 
