@@ -17,16 +17,10 @@ type DramaService struct {
 	db      *gorm.DB
 	log     *logger.Logger
 	baseURL string
-	db      *gorm.DB
-	log     *logger.Logger
-	baseURL string
 }
 
 func NewDramaService(db *gorm.DB, cfg *config.Config, log *logger.Logger) *DramaService {
 	return &DramaService{
-		db:      db,
-		log:     log,
-		baseURL: cfg.Storage.BaseURL,
 		db:      db,
 		log:     log,
 		baseURL: cfg.Storage.BaseURL,
