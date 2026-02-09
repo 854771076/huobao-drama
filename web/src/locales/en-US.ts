@@ -608,6 +608,7 @@ export default {
     loadFailed: 'Failed to load storyboards'
   },
   editor: {
+    associations:"Associations", 
     errorDetail: 'Error Detail',
     visualEffect: 'Visual Effect',
     visualEffectPlaceholder: 'Select visual effect',
