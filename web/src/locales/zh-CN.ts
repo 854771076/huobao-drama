@@ -197,7 +197,9 @@ export default {
       propList: '道具列表',
       noProps: '还没有道具',
       propStats: '道具统计',
-      propsCreated: '已创建道具'
+      propsCreated: '已创建道具',
+      poseStats: '姿态统计',
+      posesCreated: '已创建姿态'
     },
     styleSettings: '样式设置',
     defaultImageRatio: '默认图片比例',
@@ -260,6 +262,29 @@ export default {
     startExtract: '开始提取',
     extractSuccess: '道具提取任务已提交，AI分析大约需要1分钟',
     generateImage: '生成图片'
+  },
+  pose: {
+    title: '姿态管理',
+    add: '添加姿态',
+    edit: '编辑姿态',
+    delete: '删除姿态',
+    create: '创建姿态',
+    name: '姿态名称',
+    description: '姿态描述',
+    generateImage: '生成图片',
+    list: '姿态列表',
+    noPoses: '暂无姿态',
+    createSuccess: '姿态添加成功',
+    updateSuccess: '姿态更新成功',
+    deleteSuccess: '姿态已删除',
+    deleteConfirm: '确定要删除姿态"{name}"吗？此操作不可恢复。',
+    promptPlaceholder: '请输入姿态描述，用于生成图片',
+    namePlaceholder: '请输入姿态名称',
+    extractFromScript: '从剧本提取',
+    extractTitle: '从剧本提取姿态',
+    extractTip: 'AI将分析剧本肢体动作，自动提取关键姿态并生成描述',
+    selectEpisode: '选择章节',
+    startExtract: '开始提取'
   },
   script: {
     title: '剧本生成',

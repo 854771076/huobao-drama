@@ -560,6 +560,65 @@ JSON数组，每个对象包含：
 请直接返回JSON数组。`, style, imageRatio)
 }
 
+// GetPoseExtractionPrompt 获取姿态提取提示词
+func (p *PromptI18n) GetPoseExtractionPrompt(style, imageRatio string) string {
+	if style == "" {
+		style = p.config.Style.DefaultStyle + ", " + p.config.Style.DefaultPropStyle
+	}
+	if imageRatio == "" {
+		imageRatio = p.config.Style.DefaultPropRatio
+		if imageRatio == "" {
+			imageRatio = p.config.Style.DefaultImageRatio
+		}
+	}
+
+	if p.IsEnglish() {
+		return fmt.Sprintf(`Please extract key character poses from the following script.
+
+[Script Content]
+%%s
+
+[Requirements]
+1. Extract distinct poses or actions described for characters.
+2. Focus on physical actions, body language, and specific stances.
+3. "image_prompt" field is for AI image generation, must describe the pose, angle, and action in detail.
+4. "type" should be generally categorized like Action, Emotion, Static, Interaction.
+- **Style Requirement**: %s
+- **Image Ratio**: %s
+
+[Output Format]
+JSON array, each object containing:
+- name: Pose Name (e.g., "Fighting Stance", "Kneeling in Prayer")
+- type: Type (e.g., Action/Static)
+- description: Visual description of the pose
+- image_prompt: English image generation prompt (Focus on the character's pose, isolated if possible, detailed)
+
+Please return JSON array directly.`, style, imageRatio)
+	}
+
+	return fmt.Sprintf(`请从以下剧本中提取关键的人物姿态/动作。
+
+【剧本内容】
+%%s
+
+【要求】
+1. 提取剧本中描述的独特姿态或动作。
+2. 侧重于肢体动作、身体语言和特定的站位。
+3. "image_prompt"字段是用于AI生成图片的英文提示词，必须详细描述姿态、角度和动作。
+4. "type"字段请大致分类，如：动作、情绪、静态、互动。
+- **风格要求**：%s
+- **图片比例**：%s
+
+【输出格式】
+JSON数组，每个对象包含：
+- name: 姿态名称 (如："战斗姿态"、"跪地祈祷")
+- type: 类型 (如：动作/静态)
+- description: 姿态的中文视觉描述
+- image_prompt: 英文图片生成提示词 (Focus on the character's pose, isolated if possible, detailed)
+
+请直接返回JSON数组。`, style, imageRatio)
+}
+
 // GetEpisodeScriptPrompt 获取分集剧本生成提示词
 func (p *PromptI18n) GetEpisodeScriptPrompt() string {
 	if p.IsEnglish() {

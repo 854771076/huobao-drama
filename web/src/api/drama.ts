@@ -116,7 +116,7 @@ export const dramaAPI = {
   },
 
   createScene(data: {
-    drama_id: number;
+    drama_id: number|string;
     episode_id?: number;
     location: string;
     time?: string;

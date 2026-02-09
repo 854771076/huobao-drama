@@ -1,5 +1,5 @@
 import { Prop } from './prop'
-
+import { Pose } from './pose'
 export interface Drama {
   id: string
 
@@ -30,6 +30,7 @@ export interface Drama {
   episodes?: Episode[]
   scenes?: Scene[]
   props?: Prop[]
+  poses?: Pose[]
 }
 
 export type DramaStatus = 'draft' | 'planning' | 'production' | 'completed' | 'archived' | 'generating' | 'error'
