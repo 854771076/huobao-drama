@@ -1680,7 +1680,12 @@ const openAddPoseDialog = () => {
   };
   addPoseDialogVisible.value = true;
 };
-
+const fixImageUrl = (url: string | undefined | null): string => {
+  if (!url) return "";
+  // 如果是blob URL，直接返回
+  if (url.startsWith("blob:")) return url;
+  return url;
+};
 const savePose = async () => {
   if (!newPose.value.name.trim()) {
     ElMessage.warning("请输入姿态名称"); // Keep hardcoded or add key if preferred, but existing ones have mixed
