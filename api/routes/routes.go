@@ -214,6 +214,7 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *logger.Logger, localStora
 			storyboards.DELETE("/:id", storyboardHandler.DeleteStoryboard)
 			storyboards.POST("/:id/props", propHandler.AssociateProps)
 			storyboards.POST("/:id/frame-prompt", framePromptHandler.GenerateFramePrompt)
+			storyboards.POST("/:id/refresh-video-prompt", storyboardHandler.RefreshVideoPrompt)
 			storyboards.GET("/:id/frame-prompts", handlers2.GetStoryboardFramePrompts(db, log))
 		}
 

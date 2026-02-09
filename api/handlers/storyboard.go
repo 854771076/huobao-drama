@@ -110,3 +110,22 @@ func (h *StoryboardHandler) DeleteStoryboard(c *gin.Context) {
 
 	response.Success(c, nil)
 }
+
+// RefreshVideoPrompt 刷新分镜的视频提示词
+func (h *StoryboardHandler) RefreshVideoPrompt(c *gin.Context) {
+	storyboardIDStr := c.Param("id")
+	storyboardID, err := strconv.ParseUint(storyboardIDStr, 10, 32)
+	if err != nil {
+		response.BadRequest(c, "Invalid ID")
+		return
+	}
+
+	prompt, err := h.storyboardService.RefreshVideoPrompt(uint(storyboardID))
+	if err != nil {
+		h.log.Errorw("Failed to refresh video prompt", "error", err, "storyboard_id", storyboardID)
+		response.InternalError(c, err.Error())
+		return
+	}
+
+	response.Success(c, gin.H{"prompt": prompt})
+}
