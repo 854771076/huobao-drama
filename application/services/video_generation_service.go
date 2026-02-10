@@ -10,6 +10,7 @@ import (
 	models "github.com/drama-generator/backend/domain/models"
 	"github.com/drama-generator/backend/infrastructure/external/ffmpeg"
 	"github.com/drama-generator/backend/infrastructure/storage"
+	"github.com/drama-generator/backend/pkg/config"
 	"github.com/drama-generator/backend/pkg/logger"
 	"github.com/drama-generator/backend/pkg/utils"
 	"github.com/drama-generator/backend/pkg/video"
@@ -23,9 +24,10 @@ type VideoGenerationService struct {
 	localStorage    *storage.LocalStorage
 	aiService       *AIService
 	ffmpeg          *ffmpeg.FFmpeg
+	config          *config.Config
 }
 
-func NewVideoGenerationService(db *gorm.DB, transferService *ResourceTransferService, localStorage *storage.LocalStorage, aiService *AIService, log *logger.Logger) *VideoGenerationService {
+func NewVideoGenerationService(db *gorm.DB, transferService *ResourceTransferService, localStorage *storage.LocalStorage, aiService *AIService, log *logger.Logger, cfg *config.Config) *VideoGenerationService {
 	service := &VideoGenerationService{
 		db:              db,
 		localStorage:    localStorage,
@@ -33,6 +35,7 @@ func NewVideoGenerationService(db *gorm.DB, transferService *ResourceTransferSer
 		aiService:       aiService,
 		log:             log,
 		ffmpeg:          ffmpeg.NewFFmpeg(log),
+		config:          cfg,
 	}
 
 	go service.RecoverPendingTasks()
@@ -61,7 +64,7 @@ type GenerateVideoRequest struct {
 	// 多图模式
 	ReferenceImageURLs []string `json:"reference_image_urls"`
 
-	Prompt       string  `json:"prompt" binding:"required,min=5,max=2000"`
+	Prompt       string  `json:"prompt" binding:"required,min=5,max=10000"`
 	Provider     string  `json:"provider"`
 	Model        string  `json:"model"`
 	Duration     *int    `json:"duration"`
@@ -115,14 +118,25 @@ func (s *VideoGenerationService) GenerateVideo(request *GenerateVideoRequest) (*
 		Status:       models.VideoStatusPending,
 	}
 
+	// 如果未指定宽高比，从剧本配置中获取默认值
+	if videoGen.AspectRatio == nil || *videoGen.AspectRatio == "" {
+		var drama models.Drama
+		if err := s.db.Select("default_video_ratio").First(&drama, videoGen.DramaID).Error; err == nil {
+			if drama.DefaultVideoRatio != nil && *drama.DefaultVideoRatio != "" {
+				videoGen.AspectRatio = drama.DefaultVideoRatio
+				s.log.Infow("Using default drama video ratio", "drama_id", videoGen.DramaID, "aspect_ratio", *videoGen.AspectRatio)
+			}
+		}
+	}
+
 	// 根据参考图模式处理不同的参数
 	if request.ReferenceMode != "" {
 		videoGen.ReferenceMode = &request.ReferenceMode
 	}
 
 	switch request.ReferenceMode {
-	case "single":
-		// 单图模式 - 优先使用 local_path
+	case "single", "motion_sequence":
+		// 单图模式 或 动作序列模式 - 优先使用 local_path
 		if request.ImageLocalPath != nil && *request.ImageLocalPath != "" {
 			videoGen.ImageURL = request.ImageLocalPath
 		} else if request.ImageURL != "" {
@@ -201,7 +215,17 @@ func (s *VideoGenerationService) ProcessVideoGeneration(videoGenID uint) {
 		return
 	}
 
-	s.log.Infow("Starting video generation", "id", videoGenID, "prompt", videoGen.Prompt, "provider", videoGen.Provider)
+	s.log.Infow("Starting video generation", "id", videoGenID, "prompt", videoGen.Prompt, "provider", videoGen.Provider, "mode", videoGen.ReferenceMode)
+
+	finalPrompt := videoGen.Prompt
+	// 动作序列模式：输入的图片本身就是分镜图，AI需要的提示词已经由前端生成并传递过来，这里不再做额外拼接
+	if videoGen.ReferenceMode != nil && *videoGen.ReferenceMode == "motion_sequence" {
+		if videoGen.ImageGenID == nil {
+			s.log.Errorw("motion_sequence mode requires an image gen id", "video_gen_id", videoGenID)
+			s.updateVideoGenError(videoGenID, "motion_sequence mode requires an image gen id")
+			return
+		}
+	}
 
 	var opts []video.VideoOption
 	if videoGen.Model != "" {
@@ -272,7 +296,6 @@ func (s *VideoGenerationService) ProcessVideoGeneration(videoGenID uint) {
 			}
 		}
 	}
-
 	// 构造imageURL参数（单图模式使用，其他模式传空字符串）
 	// 如果是本地图片，转换为base64
 	imageURL := ""
@@ -286,7 +309,7 @@ func (s *VideoGenerationService) ProcessVideoGeneration(videoGenID uint) {
 		}
 	}
 
-	result, err := client.GenerateVideo(imageURL, videoGen.Prompt, opts...)
+	result, err := client.GenerateVideo(imageURL, finalPrompt, opts...)
 	if err != nil {
 		s.log.Errorw("Video generation API call failed", "error", err, "id", videoGenID)
 		s.updateVideoGenError(videoGenID, err.Error())
@@ -316,8 +339,6 @@ func (s *VideoGenerationService) ProcessVideoGeneration(videoGenID uint) {
 }
 
 func (s *VideoGenerationService) pollTaskStatus(videoGenID uint, taskID string, provider string, model string) {
-	// CRITICAL FIX: Validate taskID parameter to prevent invalid API calls
-	// Empty taskID would cause unnecessary API calls and potential errors
 	if taskID == "" {
 		s.log.Errorw("Invalid empty taskID for polling", "video_gen_id", videoGenID)
 		s.updateVideoGenError(videoGenID, "invalid task ID for polling")
@@ -331,15 +352,12 @@ func (s *VideoGenerationService) pollTaskStatus(videoGenID uint, taskID string, 
 		return
 	}
 
-	// Polling configuration: max 300 attempts with 10 second intervals
-	// Total maximum polling time: 300 * 10s = 50 minutes
-	// This prevents infinite polling if the task never completes
+	s.log.Infow("Starting to poll task status", "video_gen_id", videoGenID, "task_id", taskID)
+
 	maxAttempts := 300
 	interval := 10 * time.Second
 
 	for attempt := 0; attempt < maxAttempts; attempt++ {
-		// Sleep before each poll attempt to avoid overwhelming the API
-		// First iteration sleeps before the first check (after 0 attempts)
 		time.Sleep(interval)
 
 		var videoGen models.VideoGeneration
@@ -348,53 +366,141 @@ func (s *VideoGenerationService) pollTaskStatus(videoGenID uint, taskID string, 
 			return
 		}
 
-		// CRITICAL FIX: Check if status was manually changed (e.g., cancelled by user)
-		// If status is no longer "processing", stop polling to avoid unnecessary API calls
-		// This prevents polling when the task has been cancelled or failed externally
 		if videoGen.Status != models.VideoStatusProcessing {
 			s.log.Infow("Video generation status changed, stopping poll", "id", videoGenID, "status", videoGen.Status)
 			return
 		}
 
-		// Poll the video generation API for task status
-		// Continue polling on transient errors (network issues, temporary API failures)
-		// Only stop on permanent errors or task completion
 		result, err := client.GetTaskStatus(taskID)
 		if err != nil {
 			s.log.Errorw("Failed to get task status", "error", err, "task_id", taskID, "attempt", attempt+1)
-			// Continue polling on error - might be transient network issue
-			// Will eventually timeout after maxAttempts if error persists
 			continue
 		}
 
-		// Check if task completed successfully
-		// CRITICAL FIX: Validate that video URL exists when task is marked as completed
-		// Some APIs may mark task as completed but fail to provide the video URL
+		// Update database with latest status
+		updateFields := map[string]interface{}{}
+		if result.Status != "" {
+			updateFields["status"] = result.Status
+		}
+
+		// If completed (success or failure)
 		if result.Completed {
 			if result.VideoURL != "" {
-				// Successfully completed with video URL - download and update database
 				s.completeVideoGeneration(videoGenID, result.VideoURL, &result.Duration, &result.Width, &result.Height, nil)
 				return
 			}
-			// Task marked as completed but no video URL - this is an error condition
-			s.updateVideoGenError(videoGenID, "task completed but no video URL")
-			return
+			if result.Error != "" {
+				s.updateVideoGenError(videoGenID, result.Error)
+				return
+			}
+			// Completed but no URL or Error? Likely still processing or ambiguous state, but if Completed is true...
+			// Some providers might set Completed=true only on success.
+			// Let's assume if Completed && No URL && No Error, maybe it failed silenty?
+			// But wait, video_client.go sets Completed = (Status == "succeeded" or "completed")
+
+			// If it is marked as completed but no VideoURL, check for internal error field
+			if result.Status == "failed" {
+				s.updateVideoGenError(videoGenID, "task failed") // or result.Error if available
+				return
+			}
 		}
 
-		// Check if task failed with an error message
+		// If result has error but not explicitly completed?
 		if result.Error != "" {
 			s.updateVideoGenError(videoGenID, result.Error)
 			return
 		}
 
-		// Task still in progress - log and continue polling
-		s.log.Infow("Video generation in progress", "id", videoGenID, "attempt", attempt+1, "max_attempts", maxAttempts)
+		s.log.Infow("Video generation in progress", "id", videoGenID, "attempt", attempt+1, "status", result.Status)
 	}
 
-	// CRITICAL FIX: Handle polling timeout gracefully
-	// After maxAttempts (50 minutes), mark task as failed if still not completed
-	// This prevents indefinite polling and resource waste
-	s.updateVideoGenError(videoGenID, fmt.Sprintf("polling timeout after %d attempts (%.1f minutes)", maxAttempts, float64(maxAttempts*int(interval))/60.0))
+	s.updateVideoGenError(videoGenID, fmt.Sprintf("polling timeout after %d attempts", maxAttempts))
+}
+
+// GenerateActionSequencePrompt 生成动作序列模式的视频脚本提示词 (异步)
+func (s *VideoGenerationService) GenerateActionSequencePrompt(imageGenID uint) (string, error) {
+	var imageGen models.ImageGeneration
+	if err := s.db.First(&imageGen, imageGenID).Error; err != nil {
+		return "", fmt.Errorf("failed to load image generation: %w", err)
+	}
+
+	// 如果已经生成过，直接返回
+	if imageGen.VideoPrompt != nil && *imageGen.VideoPrompt != "" && imageGen.VideoPromptStatus == "completed" {
+		return *imageGen.VideoPrompt, nil
+	}
+
+	// 如果正在生成中，直接返回
+	if imageGen.VideoPromptStatus == "processing" {
+		return "", nil
+	}
+
+	// 更新状态为 processing
+	s.db.Model(&imageGen).Update("video_prompt_status", "processing")
+
+	// 异步生成
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				s.log.Errorw("Panic in GenerateActionSequencePrompt", "error", r, "image_gen_id", imageGenID)
+				s.db.Model(&models.ImageGeneration{}).Where("id = ?", imageGenID).Updates(map[string]interface{}{
+					"video_prompt_status": "failed",
+				})
+			}
+		}()
+
+		promptI18n := NewPromptI18n(s.config)
+		// 使用用户提供的九宫格动作序列提示词模板
+		systemPrompt := promptI18n.GetActionSequenceVideoScriptPrompt()
+
+		// 构造输入，这里使用图片的提示词作为输入
+		input := fmt.Sprintf("图片提示词：%s", imageGen.Prompt)
+
+		// 调用 AI 生成
+		generatedText, err := s.aiService.GenerateText(input, systemPrompt)
+		if err != nil {
+			s.log.Errorw("Failed to generate action sequence prompt", "error", err, "image_gen_id", imageGenID)
+			s.db.Model(&models.ImageGeneration{}).Where("id = ?", imageGenID).Updates(map[string]interface{}{
+				"video_prompt_status": "failed",
+			})
+			return
+		}
+
+		// 解析 JSON 输出
+		var result struct {
+			Prompt      string `json:"prompt"`
+			Description string `json:"description"`
+		}
+
+		// 尝试清理 JSON 字符串（去掉可能存在的 markdown 代码块标记）
+		jsonStr := s.cleanJSONString(generatedText)
+
+		if err := json.Unmarshal([]byte(jsonStr), &result); err != nil {
+			s.log.Errorw("Failed to parse generated prompt JSON", "error", err, "json", jsonStr)
+			// 如果解析失败，尝试直接使用生成的文本作为 prompt
+			result.Prompt = generatedText
+		}
+
+		// 更新数据库
+		s.db.Model(&models.ImageGeneration{}).Where("id = ?", imageGenID).Updates(map[string]interface{}{
+			"video_prompt":        result.Prompt,
+			"video_prompt_status": "completed",
+		})
+	}()
+
+	return "", nil
+}
+
+// cleanJSONString 清理 JSON 字符串
+func (s *VideoGenerationService) cleanJSONString(str string) string {
+	str = strings.TrimSpace(str)
+	if strings.HasPrefix(str, "```json") {
+		str = strings.TrimPrefix(str, "```json")
+		str = strings.TrimSuffix(str, "```")
+	} else if strings.HasPrefix(str, "```") {
+		str = strings.TrimPrefix(str, "```")
+		str = strings.TrimSuffix(str, "```")
+	}
+	return strings.TrimSpace(str)
 }
 
 func (s *VideoGenerationService) completeVideoGeneration(videoGenID uint, videoURL string, duration *int, width *int, height *int, firstFrameURL *string) {

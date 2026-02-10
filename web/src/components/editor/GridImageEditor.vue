@@ -157,13 +157,7 @@ interface GridImage {
   source?: string;
 }
 
-interface ImageGeneration {
-  id: number;
-  frame_type: string;
-  image_url?: string;
-  local_path?: string;
-  [key: string]: any;
-}
+import type { ImageGeneration } from "@/types/image";
 
 const props = defineProps<{
   modelValue: boolean;

@@ -55,6 +55,7 @@ type Storyboard struct {
 	SoundEffect  string `json:"sound_effect"`  // 音效描述
 	Characters   []uint `json:"characters"`    // 涉及的角色ID列表
 	IsPrimary    bool   `json:"is_primary"`    // 是否主镜
+	VideoRatio   string `json:"video_ratio"`
 }
 
 type GenerateStoryboardResult struct {
@@ -217,7 +218,7 @@ func (s *StoryboardService) GenerateStoryboard(episodeID string, model string) (
       "action": "陈峥缓缓转身，目光与身后的李芳对视，李芳手握手电筒，光束在两人之间晃动，眼神中透露疑惑和警惕",
       "dialogue": "陈峥：\"我们被耍了，这里根本没有我们要找的东西。\" 李芳：\"现在怎么办？我们的时间不多了。\"",
       "result": "两人站在昏暗中陷入沉思，手电筒光束照在地面形成圆形光斑，背景传来微弱的金属摩擦声，气氛紧张凝重",
-      "atmosphere": "低调光线·暗部占画面70%，侧面硬光勾勒人物轮廓，冷暖光对比强烈，海风吹过产生呼啸声，营造紧迫感",
+      "atmosphere": "低调光线·暗部占画面70%%，侧面硬光勾勒人物轮廓，冷暖光对比强烈，海风吹过产生呼啸声，营造紧迫感",
       "emotion": "紧张感↑↑·警惕↑↑（悬置）",
       "duration": 7,
       "bgm_prompt": "紧张感逐渐升级的音效，低频持续音",
@@ -633,7 +634,10 @@ func (s *StoryboardService) generateVideoPrompt(sb Storyboard) string {
 	var parts []string
 
 	// style := s.config.Style.DefaultStyle
-	videoRatio := s.config.Style.DefaultVideoRatio
+	videoRatio := sb.VideoRatio
+	if videoRatio == "" {
+		videoRatio = s.config.Style.DefaultVideoRatio
+	}
 	// 1. 人物动作
 	if sb.Action != "" {
 		parts = append(parts, fmt.Sprintf("Action: %s", sb.Action))
@@ -734,6 +738,16 @@ func (s *StoryboardService) saveStoryboards(episodeID string, storyboards []Stor
 			"drama_id", episode.DramaID,
 			"title", episode.Title)
 
+		// 获取 Drama 信息以获取 DefaultVideoRatio
+		var drama models.Drama
+		if err := tx.First(&drama, episode.DramaID).Error; err != nil {
+			s.log.Warnw("Failed to fetch drama for video ratio", "drama_id", episode.DramaID, "error", err)
+		}
+		defaultVideoRatio := ""
+		if drama.DefaultVideoRatio != nil {
+			defaultVideoRatio = *drama.DefaultVideoRatio
+		}
+
 		// 获取该剧集所有的分镜ID（使用 uint 类型）
 		var storyboardIDs []uint
 		if err := tx.Model(&models.Storyboard{}).
@@ -785,6 +799,7 @@ func (s *StoryboardService) saveStoryboards(episodeID string, storyboards []Stor
 				sb.ShotType, sb.Movement, sb.Action, sb.Dialogue, sb.Result, sb.Emotion)
 
 			// 生成两种专用提示词
+			sb.VideoRatio = defaultVideoRatio
 			imagePrompt := s.generateImagePrompt(sb) // 专用于图片生成
 			videoPrompt := s.generateVideoPrompt(sb) // 专用于视频生成
 
@@ -916,9 +931,21 @@ type CreateStoryboardRequest struct {
 
 // CreateStoryboard 创建单个分镜
 func (s *StoryboardService) CreateStoryboard(req *CreateStoryboardRequest) (*models.Storyboard, error) {
+	// 获取剧集信息以获取剧集关联的 Drama
+	var episode models.Episode
+	if err := s.db.Preload("Drama").First(&episode, req.EpisodeID).Error; err != nil {
+		s.log.Warnw("Failed to fetch episode/drama for video ratio", "episode_id", req.EpisodeID, "error", err)
+	}
+
+	defaultVideoRatio := ""
+	if episode.Drama.DefaultVideoRatio != nil {
+		defaultVideoRatio = *episode.Drama.DefaultVideoRatio
+	}
+
 	// 构建Storyboard对象
 	sb := Storyboard{
 		ShotNumber:  req.StoryboardNumber,
+		VideoRatio:  defaultVideoRatio,
 		ShotType:    getString(req.ShotType),
 		Angle:       getString(req.Angle),
 		Time:        getString(req.Time),
@@ -1018,8 +1045,13 @@ func getString(s *string) string {
 // RefreshVideoPrompt 刷新分镜的视频提示词
 func (s *StoryboardService) RefreshVideoPrompt(storyboardID uint) (string, error) {
 	var sb models.Storyboard
-	if err := s.db.Preload("Episode").First(&sb, storyboardID).Error; err != nil {
+	if err := s.db.Preload("Episode.Drama").First(&sb, storyboardID).Error; err != nil {
 		return "", fmt.Errorf("storyboard not found: %w", err)
+	}
+
+	defaultVideoRatio := ""
+	if sb.Episode.Drama.DefaultVideoRatio != nil {
+		defaultVideoRatio = *sb.Episode.Drama.DefaultVideoRatio
 	}
 
 	// 尝试从Description中提取Emotion
@@ -1053,6 +1085,7 @@ func (s *StoryboardService) RefreshVideoPrompt(storyboardID uint) (string, error
 		BgmPrompt:    getString(sb.BgmPrompt),
 		VisualEffect: getString(sb.VisualEffect),
 		SoundEffect:  getString(sb.SoundEffect),
+		VideoRatio:   defaultVideoRatio,
 	}
 
 	newPrompt := s.generateVideoPrompt(internalSB)

@@ -22,6 +22,8 @@ export interface ImageGeneration {
   status: ImageStatus
   task_id?: string
   error_msg?: string
+  video_prompt?: string
+  video_prompt_status?: 'pending' | 'processing' | 'completed' | 'failed'
   width?: number
   height?: number
   created_at: string

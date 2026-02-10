@@ -550,6 +550,8 @@
                     v-model="currentFramePrompt"
                     type="textarea"
                     :rows="8"
+                    maxlength="10000"
+                    show-word-limit
                     :placeholder="$t('editor.promptPlaceholder')"
                   />
                 </div>
@@ -610,8 +612,6 @@
                       <el-image
                         v-if="hasImage(img)"
                         :src="getImageUrl(img)"
-                        v-if="hasImage(img)"
-                        :src="getImageUrl(img)"
                         :preview-src-list="
                           generatedImages
                             .filter((i) => hasImage(i))
@@ -655,7 +655,11 @@
             <div class="tab-content" v-if="currentStoryboard">
               <div class="video-generation-section">
                 <!-- 生成提示词展示 -->
-                <div class="video-prompt-box">
+                <div 
+                  class="video-prompt-box"
+                  v-loading="isGeneratingActionPrompt"
+                  element-loading-text="正在生成视频脚本..."
+                >
                   {{ currentStoryboard.video_prompt || "暂无提示词" }}
                 </div>
 
@@ -766,6 +770,15 @@
                         }}{{ $t("professionalEditor.seconds") }}</span
                       >
                     </div>
+                  </div>
+
+                  <div class="param-row">
+                    <span class="param-label">宽高比</span>
+                    <el-radio-group v-model="selectedAspectRatio" size="small">
+                      <el-radio-button label="16:9">16:9</el-radio-button>
+                      <el-radio-button label="9:16">9:16</el-radio-button>
+                      <el-radio-button label="1:1">1:1</el-radio-button>
+                    </el-radio-group>
                   </div>
                 </div>
 
@@ -2352,6 +2365,7 @@ const timelineEditorRef = ref<InstanceType<typeof VideoTimelineEditor> | null>(
 const videoReferenceImages = ref<ImageGeneration[]>([]);
 const selectedVideoModel = ref<string>("");
 const selectedReferenceMode = ref<string>(""); // 参考图模式：single, first_last, multiple, none
+const selectedAspectRatio = ref<string>("16:9");
 const previewImageUrl = ref<string>(""); // 预览大图的URL
 const videoModelCapabilities = ref<VideoModelCapability[]>([]);
 let videoPollingTimer: any = null;
@@ -2599,6 +2613,11 @@ const availableReferenceModes = computed(() => {
       value: "single",
       label: "单图",
       description: "使用单张参考图",
+    });
+    modes.push({
+      value: "motion_sequence",
+      label: "动作序列",
+      description: "九宫格参考图",
     });
   }
   if (capability.supportFirstLastFrame) {
@@ -3148,6 +3167,76 @@ const extractFramePrompt = async () => {
   }
 };
 
+const isGeneratingActionPrompt = ref(false);
+const pollActionPromptTimer = ref<number | null>(null);
+
+const clearActionPromptPolling = () => {
+  if (pollActionPromptTimer.value) {
+    clearInterval(pollActionPromptTimer.value);
+    pollActionPromptTimer.value = null;
+  }
+};
+
+// 生成动作序列视频提示词
+const generateActionSequencePromptForStoryboard = async (imageGenId: number) => {
+  if (!currentStoryboard.value) return;
+  
+  clearActionPromptPolling();
+  isGeneratingActionPrompt.value = true;
+  
+  try {
+    // 触发生成
+    await videoAPI.generateActionSequencePrompt(imageGenId);
+    
+    // 开始轮询
+    pollActionPromptTimer.value = window.setInterval(async () => {
+      if (!currentStoryboard.value) {
+        clearActionPromptPolling();
+        return;
+      }
+
+      try {
+        // 使用 listImages 过滤获取最新状态
+        const result = await imageAPI.listImages({
+          drama_id: dramaId.toString(),
+          storyboard_id: Number(currentStoryboard.value.id),
+          page: 1,
+          page_size: 50
+        });
+
+        // 找到对应的图片记录
+        const targetImage = result.items.find((img: any) => img.id === imageGenId);
+
+        if (targetImage) {
+           if (targetImage.video_prompt_status === 'completed' && targetImage.video_prompt) {
+            currentStoryboard.value.video_prompt = targetImage.video_prompt;
+            ElMessage.success("动作序列视频脚本已生成");
+            saveStoryboardField('video_prompt');
+            isGeneratingActionPrompt.value = false;
+            clearActionPromptPolling();
+          } else if (targetImage.video_prompt_status === 'failed') {
+            isGeneratingActionPrompt.value = false;
+            ElMessage.error("视频脚本生成失败");
+            clearActionPromptPolling();
+          }
+          // processing or pending: continue polling
+        }
+      } catch (err) {
+        console.error("Polling error:", err);
+      }
+    }, 2000);
+
+  } catch (error: any) {
+    console.error("Failed to generate action sequence prompt:", error);
+    ElMessage.error("视频脚本生成失败");
+    isGeneratingActionPrompt.value = false;
+  }
+};
+
+onBeforeUnmount(() => {
+  clearActionPromptPolling();
+});
+
 // 检查是否正在生成提示词
 const isGeneratingPrompt = (
   storyboardId: number | undefined,
@@ -3479,8 +3568,15 @@ const handleImageSelect = (imageId: number) => {
   // 根据选择的参考图模式处理
   switch (selectedReferenceMode.value) {
     case "single":
-      // 单图模式：只能选1张，直接替换
+    case "motion_sequence":
+      // 单图模式或动作序列模式：只能选1张，直接替换
       selectedImagesForVideo.value = [imageId];
+
+      // 如果是动作序列模式，同步提示词
+      // 如果是动作序列模式，自动生成详细脚本
+      if (selectedReferenceMode.value === "motion_sequence") {
+        generateActionSequencePromptForStoryboard(imageId);
+      }
       break;
 
     case "first_last":
@@ -3631,6 +3727,7 @@ const generateVideo = async () => {
         currentStoryboard.value.description ||
         "",
       duration: videoDuration.value,
+      aspect_ratio: selectedAspectRatio.value,
       provider: provider,
       model: selectedVideoModel.value,
       reference_mode: selectedReferenceMode.value,
@@ -3639,7 +3736,8 @@ const generateVideo = async () => {
     // 根据参考图模式设置参数
     switch (selectedReferenceMode.value) {
       case "single":
-        // 单图模式 - 优先使用 local_path
+      case "motion_sequence":
+        // 单图模式或动作序列模式 - 优先使用 local_path
         if (selectedImage.local_path) {
           requestParams.image_local_path = selectedImage.local_path;
         } else if (selectedImage.image_url) {
@@ -3881,6 +3979,11 @@ const loadData = async () => {
     // 加载剧集信息
     const dramaRes = await dramaAPI.get(dramaId.toString());
     drama.value = dramaRes;
+
+    // 同步默认视频比例
+    if (dramaRes.default_video_ratio) {
+      selectedAspectRatio.value = dramaRes.default_video_ratio;
+    }
 
     // 找到当前章节
     const ep = dramaRes.episodes?.find(

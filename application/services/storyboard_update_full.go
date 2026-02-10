@@ -8,15 +8,19 @@ import (
 
 // UpdateStoryboard 更新分镜的所有字段，并重新生成提示词
 func (s *StoryboardService) UpdateStoryboard(storyboardID string, updates map[string]interface{}) error {
-	// 查找分镜
+	// 查找分镜，并预加载 Episode.Drama 以获取项目配置
 	var storyboard models.Storyboard
-	if err := s.db.First(&storyboard, storyboardID).Error; err != nil {
+	if err := s.db.Preload("Episode.Drama").First(&storyboard, storyboardID).Error; err != nil {
 		return fmt.Errorf("storyboard not found: %w", err)
 	}
 
 	// 构建用于重新生成提示词的Storyboard结构
 	sb := Storyboard{
 		ShotNumber: storyboard.StoryboardNumber,
+	}
+
+	if storyboard.Episode.Drama.DefaultVideoRatio != nil {
+		sb.VideoRatio = *storyboard.Episode.Drama.DefaultVideoRatio
 	}
 
 	// 从updates中提取字段并更新

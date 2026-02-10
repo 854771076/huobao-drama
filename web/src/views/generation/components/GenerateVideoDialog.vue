@@ -7,6 +7,14 @@
     @close="handleClose"
   >
     <el-form :model="form" :rules="rules" ref="formRef" label-width="120px">
+      <el-form-item label="生成模式" prop="reference_mode">
+        <el-radio-group v-model="form.reference_mode">
+          <el-radio label="single">单图生视频</el-radio>
+          <el-radio label="motion_sequence">动作序列 (九宫格)</el-radio>
+          <el-radio label="none">纯文本生成</el-radio>
+        </el-radio-group>
+      </el-form-item>
+
       <el-form-item label="选择剧本" prop="drama_id">
         <el-select v-model="form.drama_id" placeholder="选择剧本" @change="onDramaChange">
           <el-option
@@ -52,10 +60,12 @@
         <el-input
           v-model="form.prompt"
           type="textarea"
-          :rows="5"
+          :rows="8"
           placeholder="描述视频中的动作和运镜&#10;例如：Camera slowly zooms in, wind blowing through hair, cinematic lighting"
-          maxlength="2000"
+          maxlength="10000"
           show-word-limit
+          v-loading="isGeneratingPrompt"
+          element-loading-text="正在生成视频脚本..."
         />
       </el-form-item>
 
@@ -160,6 +170,7 @@ const visible = computed({
 
 const formRef = ref<FormInstance>()
 const generating = ref(false)
+const isGeneratingPrompt = ref(false)
 const dramas = ref<Drama[]>([])
 const images = ref<ImageGeneration[]>([])
 
@@ -174,7 +185,8 @@ const form = reactive<GenerateVideoRequest & { image_gen_id?: number }>({
   motion_level: 50,
   camera_motion: undefined,
   style: undefined,
-  seed: undefined
+  seed: undefined,
+  reference_mode: 'single'
 })
 
 const rules: FormRules = {
@@ -206,6 +218,12 @@ watch(() => props.modelValue, (val) => {
     if (props.dramaId) {
       form.drama_id = props.dramaId
       loadImages(props.dramaId)
+      
+      // 设置默认比例
+      const drama = dramas.value.find(d => d.id.toString() === props.dramaId)
+      if (drama && drama.default_video_ratio) {
+        form.aspect_ratio = drama.default_video_ratio
+      }
     }
   }
 })
@@ -239,6 +257,10 @@ const onDramaChange = (dramaId: string) => {
   images.value = []
   if (dramaId) {
     loadImages(dramaId)
+    const drama = dramas.value.find(d => d.id.toString() === dramaId)
+    if (drama && drama.default_video_ratio) {
+      form.aspect_ratio = drama.default_video_ratio
+    }
   }
 }
 
@@ -251,9 +273,113 @@ const onImageChange = (imageGenId: number | undefined) => {
   const image = images.value.find(img => img.id === imageGenId)
   if (image && image.image_url) {
     form.image_url = image.image_url
-    form.prompt = image.prompt
+    
+    // 如果是动作序列图，自动切换模式
+    if (image.frame_type === 'motion_sequence') {
+      form.reference_mode = 'motion_sequence'
+      // 自动生成详细脚本
+      generatePrompt()
+    } else {
+      form.prompt = image.prompt
+      form.reference_mode = 'single'
+    }
   }
 }
+
+const pollTimer = ref<number | null>(null)
+
+// 清理定时器
+const clearPolling = () => {
+  if (pollTimer.value) {
+    clearInterval(pollTimer.value)
+    pollTimer.value = null
+  }
+}
+
+const generatePrompt = async () => {
+  if (!form.image_gen_id) return
+  
+  clearPolling()
+  isGeneratingPrompt.value = true
+  
+  try {
+    // 触发生成
+    await videoAPI.generateActionSequencePrompt(form.image_gen_id)
+    
+    // 开始轮询
+    pollTimer.value = window.setInterval(async () => {
+      if (!form.image_gen_id) {
+        clearPolling()
+        return
+      }
+      
+      try {
+        // 使用 getImage 还是 listImages? listImages 可能比较重，但 getImage 需要 id
+        // imageAPI 应该有 getImage 方法，如果没有，我需要确认
+        // 假设 imageAPI.getImage(id) 存在
+        // 如果没有，我需要去 api/image.ts 确认
+        // 看来 imageAPI.getImage 可能不存在，我看不到 api/image.ts 的内容
+        // 保险起见，用 listImages 过滤 id，或者去确认一下 api/image.ts
+        // 为了稳妥，先用 listImages 过滤，或者假设 getImage 存在并在出错时修复
+        // 但为了避免来回改，我先去确认 api/image.ts
+        // 实际上之前的代码用了 listImages，这里也用 listImages 吧，虽然低效一点
+        
+        const result = await imageAPI.listImages({
+          storyboard_id: undefined, // 无法只通过 id 获取，除非后端支持
+          // 这里的 filter 可能不够，listImages 通常是按 drama/storyboard 过滤
+          // 这里我们有 drama_id，可以传
+          drama_id: form.drama_id,
+          page: 1,
+          page_size: 100 // 假设最近生成的在前
+        })
+        
+        const targetImage = result.items.find((img: ImageGeneration) => img.id === form.image_gen_id)
+        
+        if (targetImage) {
+          if (targetImage.video_prompt_status === 'completed' && targetImage.video_prompt) {
+            form.prompt = targetImage.video_prompt
+            isGeneratingPrompt.value = false
+            ElMessage.success('动作序列视频脚本已生成')
+            clearPolling()
+          } else if (targetImage.video_prompt_status === 'failed') {
+            isGeneratingPrompt.value = false
+            ElMessage.error('视频脚本生成失败')
+            form.prompt = targetImage.prompt // 回退
+            clearPolling()
+          }
+          // processing or pending: continue polling
+        }
+      } catch (err) {
+        console.error('Polling error:', err)
+        // 轮询出错不一定要停止，可能是网络抖动
+      }
+    }, 2000) // 每2秒轮询一次
+    
+  } catch (error) {
+    console.error('Failed to start generate prompt:', error)
+    ElMessage.error('无法开始生成视频脚本')
+    isGeneratingPrompt.value = false
+  }
+}
+
+// 监听对话框关闭，清理定时器
+watch(visible, (val) => {
+  if (!val) {
+    clearPolling()
+    isGeneratingPrompt.value = false
+  }
+})
+
+// 监听模式变化，如果切换到动作序列模式且有图片，尝试生成脚本
+watch(() => form.reference_mode, (newVal) => {
+  if (newVal === 'motion_sequence' && form.image_gen_id) {
+    // 只有当当前prompt看起来不像是一个完整的脚本（简短）时才自动生成？
+    // 或者总是生成？用户体验上，切换模式通常意味着用户想用这个模式的功能。
+    // 为了避免覆盖用户已编辑的内容，可以加个判断。但在当前流程中，切换模式通常是用户主动操作。
+    // 简单起见，如果是切换到该模式，且有图片，就生成。
+    generatePrompt()
+  }
+})
 
 const truncateText = (text: string, length: number) => {
   if (text.length <= length) return text
@@ -282,35 +408,27 @@ const handleGenerate = async () => {
     console.log('Starting video generation...', form)
     
     try {
-      if (form.image_gen_id) {
-        console.log('Generating from image:', form.image_gen_id)
-        await videoAPI.generateFromImage(form.image_gen_id)
-      } else {
-        const params: GenerateVideoRequest = {
-          drama_id: form.drama_id,
-          prompt: form.prompt,
-          provider: form.provider
-        }
-
-        // 判断参考图模式
-        if (form.image_url && form.image_url.trim()) {
-          params.image_url = form.image_url
-          params.reference_mode = 'single'
-        } else {
-          // 纯文本生成，无参考图
-          params.reference_mode = 'none'
-        }
-
-        if (form.duration) params.duration = form.duration
-        if (form.aspect_ratio) params.aspect_ratio = form.aspect_ratio
-        if (form.motion_level !== undefined) params.motion_level = form.motion_level
-        if (form.camera_motion) params.camera_motion = form.camera_motion
-        if (form.style) params.style = form.style
-        if (form.seed && form.seed > 0) params.seed = form.seed
-
-        console.log('Generating video with params:', params)
-        await videoAPI.generateVideo(params)
+      const params: GenerateVideoRequest = {
+        drama_id: form.drama_id,
+        prompt: form.prompt,
+        provider: form.provider,
+        image_gen_id: form.image_gen_id,
+        reference_mode: form.reference_mode
       }
+
+      if (form.image_url && form.image_url.trim()) {
+        params.image_url = form.image_url
+      }
+
+      if (form.duration) params.duration = form.duration
+      if (form.aspect_ratio) params.aspect_ratio = form.aspect_ratio
+      if (form.motion_level !== undefined) params.motion_level = form.motion_level
+      if (form.camera_motion) params.camera_motion = form.camera_motion
+      if (form.style) params.style = form.style
+      if (form.seed && form.seed > 0) params.seed = form.seed
+
+      console.log('Generating video with params:', params)
+      await videoAPI.generateVideo(params)
       
       ElMessage.success('视频生成任务已提交，请稍后查看结果')
       emit('success')

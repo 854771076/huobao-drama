@@ -5,6 +5,7 @@ import (
 
 	"github.com/drama-generator/backend/application/services"
 	"github.com/drama-generator/backend/infrastructure/storage"
+	"github.com/drama-generator/backend/pkg/config"
 	"github.com/drama-generator/backend/pkg/logger"
 	"github.com/drama-generator/backend/pkg/response"
 	"github.com/gin-gonic/gin"
@@ -16,9 +17,9 @@ type VideoGenerationHandler struct {
 	log          *logger.Logger
 }
 
-func NewVideoGenerationHandler(db *gorm.DB, transferService *services.ResourceTransferService, localStorage *storage.LocalStorage, aiService *services.AIService, log *logger.Logger) *VideoGenerationHandler {
+func NewVideoGenerationHandler(db *gorm.DB, transferService *services.ResourceTransferService, localStorage *storage.LocalStorage, aiService *services.AIService, log *logger.Logger, cfg *config.Config) *VideoGenerationHandler {
 	return &VideoGenerationHandler{
-		videoService: services.NewVideoGenerationService(db, transferService, localStorage, aiService, log),
+		videoService: services.NewVideoGenerationService(db, transferService, localStorage, aiService, log, cfg),
 		log:          log,
 	}
 }
@@ -146,4 +147,23 @@ func (h *VideoGenerationHandler) DeleteVideoGeneration(c *gin.Context) {
 	}
 
 	response.Success(c, nil)
+}
+
+func (h *VideoGenerationHandler) GenerateActionSequencePrompt(c *gin.Context) {
+	var req struct {
+		ImageGenID uint `json:"image_gen_id" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+
+	prompt, err := h.videoService.GenerateActionSequencePrompt(req.ImageGenID)
+	if err != nil {
+		h.log.Errorw("Failed to generate action sequence prompt", "error", err)
+		response.InternalError(c, err.Error())
+		return
+	}
+
+	response.Success(c, gin.H{"prompt": prompt})
 }

@@ -14,6 +14,10 @@ export const videoAPI = {
     return request.post<VideoGeneration>(`/videos/image/${imageGenId}`)
   },
 
+  generateActionSequencePrompt(imageGenId: number) {
+    return request.post<{ prompt: string }>('/videos/prompt/action-sequence', { image_gen_id: imageGenId })
+  },
+
   batchGenerateForEpisode(episodeId: number) {
     return request.post<VideoGeneration[]>(`/videos/episode/${episodeId}/batch`)
   },

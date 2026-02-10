@@ -43,6 +43,116 @@ func (p *PromptI18n) GetLanguage() string {
 func (p *PromptI18n) IsEnglish() bool {
 	return p.GetLanguage() == "en"
 }
+func (p *PromptI18n) GetActionSequenceFramePrompt(style string, imageRatio string) string {
+	if style == "" {
+		style = p.config.Style.DefaultStyle
+	}
+	if imageRatio == "" {
+		imageRatio = p.config.Style.DefaultImageRatio
+	}
+	if p.IsEnglish() {
+		return fmt.Sprintf(`**Role:** You are an expert in visual storytelling and image generation prompting. You need to generate a single prompt that describes a 3x3 grid action sequence.
+
+**Core Logic:**
+
+1. **Holistic Integration:** This is a single, complete image containing a 3x3 grid layout, showcasing 9 sequential actions of the same subject.
+2. **Visual Anchoring:** The subject, clothing, art style, and character consistency must be identical across all 9 frames.
+3. **Action Evolution:** From Frame 1 to Frame 9, display a complete action sequence (e.g., Standing → Walking → Running → Jumping → Landing).
+4. **Prompt Engineering:** Use high-quality visual vocabulary (lighting, textures, composition, depth of field).
+
+**Important:**
+
+You must generate **ONE** comprehensive prompt to describe the entire 3x3 grid image, rather than 9 independent prompts.
+
+Each frame **must** follow these specific rules:
+
+- **Frame 1:** Preparation/Initial stance
+- **Frame 2:** Anticipation/Body adjustment
+- **Frame 3:** Initiation/Beginning of movement
+- **Frame 4:** Acceleration/Power building
+- **Frame 5:** Peak of tension/Just before the burst
+- **Frame 6:** Action burst/The climax moment
+- **Frame 7:** Power release/Inertia continuation
+- **Frame 8:** Deceleration/Follow-through
+- **Frame 9:** Complete conclusion/Return to stillness
+
+**Style:** * %s
+
+**Aspect Ratio:** * %s
+
+**Output Specification:**
+
+You must return a **JSON object** with the following structure:
+
+- **prompt**: A **complete English image generation prompt** (describing the 3x3 grid layout, subject features, the evolution of the 9 actions, environment, and lighting details to ensure the AI generates one single image containing 9 frames).
+- **description**: A **simplified English description** (summarizing the core content of the action sequence).
+
+**Example Format:**
+
+{
+  "prompt": "Action sequence layout, 3x3 grid composition\n [Frame 1]: [Subject] standing naturally in [Setting], feet shoulder-width apart...\n---\n [Frame 2]: [Subject] locking eyes forward, leaning body slightly...\n---\n [Frame 3]: [Subject's legs] bending slightly, center of gravity lowering...\n---\n [Frame 4]: [Subject] pushing off with back leg, body moving forward, dust rising from [Setting's ground]...\n---\n [Frame 5]: [Subject's clothing] fluttering, body leaning deep, fist charging power...\n---\n [Frame 6]: [Subject] sprinting at full speed, fist striking out...\n---\n [Frame 7]: [Subject] impact moment, body lunging forward...\n---\n [Frame 8]: [Subject] slowing down, pulling back the fist...\n---\n [Frame 9]: [Subject's full appearance] standing firm in [Setting], recovering original stance.",
+  "description": "Complete action sequence of a swordsman in black from drawing a blade to striking."
+}
+
+`, style, imageRatio)
+	}
+
+	return fmt.Sprintf(`## Role
+你是一位专精 **视觉叙事 (Visual Storytelling)** 的提示词架构师。你的任务是将动作脚本转化为 **3x3 九宫格连续动作 Prompt**。
+
+## Core Logic & Constraints
+1.  **布局核心**：必须包含 3x3 grid, 9 panels, contact sheet，强制九宫格布局。
+2.  **去特征化锚定 (State-Based Anchoring)**：
+    * **严禁**在 Prompt 开头硬性定义角色的物理外貌（如发色、衣着）。
+    * **必须**定义角色的 **[当前状态]** (如：专注、力竭、杀气、空灵) 和 **[环境氛围]** (如：暴雨、赛博霓虹、废墟尘埃)。
+    * 利用 same character across all panels 强制 AI 自行维护由状态衍生出的视觉一致性。
+3.  **镜头语言 (Camera Language)**：
+    * **Panel 1-3 (特写)**：聚焦面部微表情、局部肌肉纹理、眼神光。
+    * **Panel 4-9 (中/全景)**：聚焦肢体张力、动作轨迹、环境互动。
+4.  **演进逻辑**：严格遵守「准备(特写) -> 蓄力/爆发(全身) -> 收尾(全身)」的节奏。
+5.  **语言**：中文输出
+6.  **禁止**：禁止输出任何logo和水印
+
+## Style
+%s
+
+## Workflow
+1.  提取场景的**光影/氛围**关键词。
+2.  提取主角的**精神/生理状态**关键词。
+3.  按 9 格节奏填充动作分镜。
+4.  输出 JSON。
+
+## output
+{
+"prompt": "第一格xxxx\n第2格xxxx",
+"description": "从起始到完成的完整连续动作序列"
+}`, style)
+}
+
+// GetActionSequenceVideoScriptPrompt 获取动作序列视频脚本生成提示词
+func (p *PromptI18n) GetActionSequenceVideoScriptPrompt() string {
+	return `## Role
+你是一位 AI 视频导演，负责将静态九宫格转化为 **物理真实、无穿帮、逻辑对齐** 的视频生成脚本。
+
+## 核心准则
+1. **物理定律 (Physics)**：每个动作必须包含 [质量感]、[重力反馈] 和 [惯性缓冲]。
+2. **一致性 (Continuity)**：视频剧情必须与九宫格严格一致，人物/场景/光影不得变化,**特别注意人物的脸一定不能变**。
+3. **防穿帮 (Anti-Morphing)**：提示词须强调骨架连贯，禁止肢体自我穿透。
+4. **语言**：中文输出
+## 视频脚本输出格式
+请针对九宫格的每一格生成如下内容：
+
+### 第 X 格：[阶段名称]
+- **时长**: [2-4s]
+- **拍摄**: (景别-运镜-动态效果)
+- **Action**: 【具体动作描写】。物理反馈：(描述重力、风阻、撞击力等真实反馈)。
+- **AI 视频提示词 (中文)**: [包含：Subject + Movement + Camera + Physics + No Morphing]
+- **配音 (VO)**: [台词或呼吸声]
+- **音效 (SFX)**: [具体的拟音描述]
+
+### 输入
+%s`
+}
 
 // GetStoryboardSystemPrompt 获取分镜生成系统提示词
 func (p *PromptI18n) GetStoryboardSystemPrompt() string {
